@@ -4,7 +4,7 @@ from collections import defaultdict,Counter
 from decimal import Decimal as D
 import heapq
 import re
-from core import decimal_value,rounded,newest_diff,current_total,current_amount,valid_count,supplier_map
+from core import decimal_value,rounded,newest_diff,initial_diff,changes,current_total,current_amount,valid_count,supplier_map
 
 DEFAULT_PARAMETERS={'cost_tolerance':False,'quantity_multiple':3,'quantity_large':20,
                     'high_amount':100,'priority_limit':20,'retail_tolerance':'0.01'}
@@ -216,18 +216,24 @@ def row_models(items,state,engine=None,cross=None,enrich=()):
         if engine.suppliers.get(x['商品条码'])=='多供货商·待核实':risks.append('多供应商冲突：可在供应商数据库选主或保留未知')
         score,why=priority(x,mix+swap,params)
         peers=engine.peers(key) if key in enrich else []
+        from workflow import change_description
+        before=initial_diff(x);change=changes(x)
         rows.append({'id':key,'sequence':x['序号'],'name':x['商品名称'],'barcode':x['商品条码'],'code':x['商品编码'],
            'category':x.get('大类') or '未分类','department':x.get('部类',''),'middle':x.get('中类',''),
            'system':None if x['系统数'] is None else float(x['系统数']),
            'initial':None if x['初盘数'] is None else float(x['初盘数']),
+           'adjustment':float(decimal_value(x.get('原始调整'),D(0))),
            'recount':None if x.get('复盘实数') is None else float(x['复盘实数']),
            'total':None if current_total(x) is None else float(current_total(x)),
            'diff':None if diff is None else float(diff),'amount':None if amount is None else float(amount),
+           'initial_diff':None if before is None else float(before),
+           'change':None if change['复盘变化量'] is None else float(change['复盘变化量']),
+           'change_label':change_description(x),
            'cost':None if cost is None else float(cost),'retail':None if decimal_value(x.get('零售价')) is None else float(decimal_value(x['零售价'])),
            'supplier':engine.suppliers.get(x['商品条码'],'未在目录'),'note':x.get('备注',''),
            'spec':x.get('销售规格',''),'unit':x.get('件装单位',''),
            'packing':str(info.get('包装系数') or '未提供，不自动推定'),
            'cost_basis':f"{x.get('原文件','')} / {x.get('工作表','')} / 第{x.get('原始行号','')}行；原件成本{x.get('原始字段',{}).get('成本价','未提供')}；当前成本{cost if cost is not None else '缺失'}",
-           'mix_count':mix,'swap_count':swap,'peers':peers,'flags':flags,'unit_hints':hints,'risk_hints':risks,
+           'mix_count':mix,'swap_count':swap,'candidate_count':engine.count(key,'all'),'peers':peers,'flags':flags,'unit_hints':hints,'risk_hints':risks,
            'score':score,'score_reason':why,'cross':cross.get(key,[])})
     return rows

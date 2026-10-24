@@ -116,7 +116,7 @@ class Store:
         state['meta'].setdefault('source_files',[r[0] for r in self.db.execute('SELECT filename FROM sources WHERE batch=?',(batch,))])
         return items,json.loads(row[1]),state,row[3]
 
-    def save(self, batch, items, state, revision, actor='本机店长', source='工作台编辑', request_id=None):
+    def save(self, batch, items, state, revision, actor='本机店长', source='工作台编辑', request_id=None, item_steps=None):
         actor=actor.strip() or '本机店长'
         request_id=request_id or uuid.uuid4().hex
         # 只保存允许编辑的字段；来源与固定序号不接受客户端修改。
@@ -146,7 +146,18 @@ class Store:
             if json.loads(row[0])==json.loads(text):return revision
             oldpayload=json.loads(row[0]);original=hydrate(json.loads(row[2]))
             previous=patch_items(original,oldpayload.get('edits',{}));byid={x['记录ID']:x for x in previous}
-            for x in items:
+            if item_steps is not None:
+                newbyid={x['记录ID']:x for x in items};covered=set()
+                for step in item_steps:
+                    ident,field=step['id'],step['field']
+                    if ident not in newbyid or field not in EDIT_FIELDS or (ident,field) in covered:raise ValueError('连续录入轨迹无效')
+                    covered.add((ident,field));olditem=byid[ident];x=newbyid[ident]
+                    if dumps(olditem.get(field))!=dumps(x.get(field)):
+                        self.db.execute('INSERT INTO item_events(batch,record_id,barcode,at,actor,source,old_json,new_json,request_id) VALUES(?,?,?,?,?,?,?,?,?)',
+                            (batch,ident,x['商品条码'],now(),actor,source,dumps({field:olditem.get(field)}),dumps({field:x.get(field)}),step['request_id']))
+                changed={(x['记录ID'],field) for x in items for field in EDIT_FIELDS if dumps(byid[x['记录ID']].get(field))!=dumps(x.get(field))}
+                if not changed<=covered:raise ValueError('连续录入缺少对应轨迹，未保存')
+            for x in ([] if item_steps is not None else items):
                 olditem=byid[x['记录ID']]
                 changed=[k for k in EDIT_FIELDS if dumps(olditem.get(k))!=dumps(x.get(k))]
                 if changed:

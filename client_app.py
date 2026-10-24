@@ -13,10 +13,11 @@ from imports_exports import (identify_batch,supplier_import,generic_rows,cross_c
     transactions_for,import_master,export_workbook)
 from workbench_component import workbench
 from reporting import financial_panel, report_document, validated_meta_value, report_defaults
+from workflow import linked_order
 import legacy_views as legacy
 
 ROOT=Path(__file__).resolve().parent
-PAGES=['01复盘与智能找差异','02变化/导出','供货商数据库','打印历史','高级异常明细']
+PAGES=['01 连续复盘找差异','02 公司盘点结果导出','03 现场复核单打印','更多工具']
 
 @st.cache_data(max_entries=5,show_spinner=False)
 def parse(gn,gb,ln,lb):return import_pair((gn,gb),(ln,lb))
@@ -43,6 +44,7 @@ def bulk_patches(text,items):
         value=None if row[1].strip()=='' else row[1].strip()
         patch={'复盘实数':value}
         if len(row)>2:patch['备注']=row[2]
+        if len(row)>3:patch['单位说明']=row[3]
         patches[bybarcode[bc][0]['记录ID']]=patch
     if not patches:raise ValueError('没有可保存的粘贴行')
     return patches
@@ -56,20 +58,28 @@ def component_action(batch):
     db=Store(dbroot())
     try:
         items,notes,state,rev=db.load(batch);kind=event.get('kind');mapping={x['记录ID']:x for x in items}
-        if kind in ('edit','bulk','undo','meta'):
+        if kind in ('edit','edits','bulk','undo','meta'):
             if event.get('revision')!=rev:raise ValueError('另一窗口已更新。输入草稿仍保留，请刷新并核对后重试')
-        if kind=='edit':
-            x=mapping.get(event.get('id'));field=event.get('field')
-            if x is None or field not in ('复盘实数','备注'):raise ValueError('不是可编辑的01字段')
-            current=x.get(field);base=event.get('base')
-            if field=='复盘实数':
-                if decimal_value(current)!=decimal_value(base):raise ValueError('该实数已被其他修改更新，草稿未覆盖现值')
-                value=None if str(event.get('value','')).strip()=='' else event.get('value')
-            else:
-                if str(current or '')!=str(base or ''):raise ValueError('该原因已更新，草稿未覆盖现值')
-                value=event.get('value','')
-            updated=patch_items(items,{x['记录ID']:{field:value}})
-            db.save(batch,updated,state,rev,actor(),'01单元格编辑',request)
+        if kind=='copy_snapshot' and event.get('purpose')=='reset' and event.get('revision')!=rev:
+            raise ValueError('另一窗口已更新，请刷新后按最新数据生成汇报')
+        if kind in ('edit','edits'):
+            entries=event.get('entries',[]) if kind=='edits' else [event]
+            if not entries or len(entries)>100:raise ValueError('连续录入范围无效')
+            patches={};steps=[]
+            for entry in entries:
+                x=mapping.get(entry.get('id'));field=entry.get('field')
+                if x is None or field not in ('复盘实数','备注'):raise ValueError('不是可编辑的01字段')
+                current=x.get(field);base=entry.get('base')
+                if field=='复盘实数':
+                    if decimal_value(current)!=decimal_value(base):raise ValueError('该实数已被其他修改更新，草稿未覆盖现值')
+                    value=None if str(entry.get('value','')).strip()=='' else entry.get('value')
+                else:
+                    if str(current or '')!=str(base or ''):raise ValueError('该原因已更新，草稿未覆盖现值')
+                    value=entry.get('value','')
+                patches.setdefault(x['记录ID'],{})[field]=value
+                steps.append({'id':x['记录ID'],'field':field,'request_id':entry['request_id']})
+            updated=patch_items(items,patches)
+            db.save(batch,updated,state,rev,actor(),'01连续录入' if kind=='edits' else '01单元格编辑',request,steps)
         elif kind=='meta':
             scope,field=event.get('scope'),event.get('field')
             value=validated_meta_value(scope,field,event.get('value'))
@@ -92,7 +102,16 @@ def component_action(batch):
             updated=patch_items(items,bulk_patches(event.get('text',''),items))
             db.save(batch,updated,state,rev,actor(),'01批量粘贴',request)
         elif kind=='undo':db.undo_last(batch,rev,actor())
-        elif kind=='view':st.session_state['enrich_'+batch]=[k for k in event.get('ids',[])[:101] if k in mapping]
+        elif kind=='view':
+            prior=st.session_state.get('enrich_'+batch,[])
+            st.session_state['enrich_'+batch]=list(dict.fromkeys(prior+[k for k in event.get('ids',[])[:201] if k in mapping]))[-4000:]
+        elif kind=='copy_snapshot':
+            if event.get('purpose')=='reset':
+                state['meta'].setdefault('report',{}).pop('draft',None)
+                state['meta']['report'].pop('draft_signature',None)
+                db.save(batch,items,state,rev,actor(),'汇报按最新数据重新生成',request)
+                items,notes,state,rev=db.load(batch)
+            st.session_state['copy_'+batch]={'id':request,'revision':rev,**report_document(items,state['meta'])}
         elif kind=='detail':
             a,b=event.get('a'),event.get('b')
             if a not in mapping or b is not None and b not in mapping:raise ValueError('商品不存在')
@@ -112,6 +131,7 @@ def render_workbench(db,batch,items,state,rev):
     enrich=set(st.session_state.get('enrich_'+batch,[]))
     if not enrich:
         enrich={x['记录ID'] for x in sorted(items,key=lambda x:-abs(current_amount(x) or 0))[:20]}
+    if len(items)<=1500:enrich={x['记录ID'] for x in items}
     selected=st.session_state.get('detail_'+batch)
     if selected:enrich.update(k for k in selected if k)
     rows=row_models(items,state,engine,cross,enrich);mapping={r['id']:r for r in rows}
@@ -128,11 +148,19 @@ def render_workbench(db,batch,items,state,rev):
             'history':db.item_history(batch,b or a)[:50], 'peers':peers,
             'has_more':len(engine.neighbors(a)|engine.neighbors(a,'swap'))>limit}
     last=db.db.execute('SELECT at FROM events WHERE batch=? ORDER BY id DESC LIMIT 1',(batch,)).fetchone()
-    payload={'batch':batch,'revision':rev,'rows':rows,'filters':FILTERS,'enriched':list(enrich),
+    order,partners=linked_order(items,engine) if len(items)<=1500 else ([x['记录ID'] for x in items],{})
+    for row in rows:
+        peer=partners.get(row['id']);row['partner']=peer
+        if peer and all(p['id']!=peer for p in row['peers']):
+            p=engine.pair(row['id'],peer);other=engine.items[peer]
+            row['peers']=[{k:v for k,v in p.items() if k!='sort'}|{'id':peer,'name':other['商品名称'],'barcode':other['商品条码'],'diff':float(engine.diff[peer])}]+row['peers'][:2]
+        row['peers']=[{k:p[k] for k in ('id','name','barcode','diff','kind','mix')} for p in row['peers'][:1]]
+    payload={'batch':batch,'revision':rev,'rows':rows,'pair_order':order,'filters':FILTERS,'enriched':list(enrich),
         'saved_at':last[0] if last else '', 'imported_at':state['meta']['first_import_at'],
         'ack':st.session_state.get('ack_'+batch),'error':st.session_state.get('grid_error_'+batch),
         'detail':detail,'finance':{'sales_amount':state['meta'].get('sales_amount'),'sales_cost':state['meta'].get('sales_cost')},
         'panel':financial_panel(items,state['meta']),'report':report_document(items,state['meta']),
+        'copy_snapshot':st.session_state.get('copy_'+batch),
         'audit':('正式导出请在02完整检查' if not blockers else f'正式导出尚有{len(blockers)}项待办，详见02'),
         'stats':{'difference_count':sum(newest_diff(x) not in (None,0) for x in items),
            'done':stats['已复盘'],'pending':sum(x.get('复盘实数') is None and newest_diff(x) not in (None,0) for x in items),
@@ -181,7 +209,7 @@ def save_state(db,batch,items,state,rev,source):
     st.rerun()
 
 def changes_exports(db,batch,items,state,rev):
-    st.subheader('02 · 变化清单 / 系统三列 / V13工作簿')
+    st.subheader('变化清单与V13七表工作簿')
     engine=CandidateEngine(items,state['vendors'],state['meta'].get('parameters'),state['meta'].get('main_suppliers'))
     rows=change_rows(items,state['vendors'])
     for row,x in zip(rows,items):
@@ -192,9 +220,7 @@ def changes_exports(db,batch,items,state,rev):
             '核查标签':'；'.join(p['kind']+' ↔ '+p['name']+' / '+p['barcode'] for p in engine.peers(x['记录ID'])),
             '原始行号':x['原始行号'],'原文件':x['原文件']})
     df=table(rows,alt='自动变化与当前实物数量')
-    with st.expander('正式导出检查 · 公司三列文件'):
-        legacy.review(db,batch,items,state,rev,actor())
-    st.warning('以下核对资料为草稿，未批准，禁止作为公司库存调整提交。公司上传文件须使用上方正式导出检查后的三列XLS。')
+    st.warning('以下均为核对草稿。公司最终三列文件请到02生成，禁止把草稿作为库存调整提交。')
     st.download_button('下载变化草稿 CSV（非系统上传）',('草稿·未批准·禁止库存调整提交\n'+df.to_csv(index=False)).encode('utf-8-sig'),'草稿_变化核对_禁止上传.csv','text/csv')
     candidate_scope=st.selectbox('工作簿异常候选范围',['all','summary'],format_func=lambda k:'完整成对候选' if k=='all' else '每商品前3条摘要（全量在软件分页查看）')
     if st.button('生成完整V13工作簿草稿（7表）'):
@@ -371,6 +397,47 @@ def evidence_ui(db,batch,items,state):
     a,b=st.columns(2);start=a.text_input('比对起始日期（可选 YYYY-MM-DD）');end=b.text_input('比对结束日期（可选 YYYY-MM-DD）')
     if bc:table(transactions_for(bc,evidence,start,end),alt='条码和期间筛选的交易证据')
 
+def company_export(db,batch,items,state,rev):
+    from core import create_company_xls
+    st.subheader('公司盘点结果导出')
+    meta=state['meta'];errors=validate_all(items)
+    engine=CandidateEngine(items,state['vendors'],meta.get('parameters'),meta.get('main_suppliers'))
+    blockers=fast_blockers(items,state,engine)
+    pending=sum(x.get('复盘实数') is None for x in items)
+    st.caption(f"当前批次：{meta['store']} · {meta['period']} · {batch}")
+    a,b,c=st.columns(3);a.metric('商品条数',len(items));b.metric('待复盘条数',pending);c.metric('数据检查',f'{len(errors)}项错误' if errors else '数据格式通过')
+    if blockers:st.info(f'核对草稿 · {len(blockers)}项条件待完成；检查通过后才可下载正式候选。')
+    else:st.success('正式候选 · 本机检查通过，审批和公司系统上传仍由人工完成。')
+    st.caption('按01最新已保存的有效实物总数实时生成；严格为商品编码、商品条码、数量三列，不含补货申请字段。')
+    with st.expander('导出检查与剩余问题',expanded=pending==0 and bool(blockers)):
+        with st.form('company_checks_'+batch):
+            coverage=st.checkbox('确认同门店、同期间且覆盖本次完整盘点范围',value=meta.get('coverage',False))
+            evidence=st.checkbox('确认差异已核实、相关凭证齐备',value=meta.get('evidence',False))
+            if st.form_submit_button('保存导出确认'):
+                updated=copy.deepcopy(state);updated['meta'].update(coverage=coverage,evidence=evidence)
+                save_state(db,batch,items,updated,rev,'02导出完整性确认')
+        if blockers:
+            st.write('；'.join(blockers[:5]))
+            with st.expander(f'查看全部{len(blockers)}项剩余问题'):
+                table([{'剩余问题':v} for v in blockers],alt='正式导出阻断列表')
+        st.caption('未复盘、无效条码、缺编码、无效数量、待核线索、缺原因/凭证或超过2‰等条件仍会阻断正式导出。经营金额在01填写。')
+    a,b=st.columns(2)
+    if a.button('预览最终三列',key='preview_company_'+batch):st.session_state['company_preview_'+batch]=True
+    blob=None
+    if not blockers:
+        try:blob=create_company_xls(items,meta,state['vendors'])
+        except ValueError as exc:st.error(str(exc))
+    b.download_button('下载公司盘点表.xls',blob or b'',file_name='公司盘点表.xls',mime='application/vnd.ms-excel',disabled=blob is None)
+    if st.session_state.get('company_preview_'+batch):
+        table([{'商品编码':x['商品编码'],'商品条码':x['商品条码'],'数量':num(current_total(x))} for x in items],alt='最新保存数据的最终三列预览')
+
+def tools_page(db,batch,items,state,rev):
+    mode=st.selectbox('更多工具',['供货商数据库','商品档案与异常分析','变化清单/七表母版','来源与本地备份'],key='tools_mode')
+    if mode=='供货商数据库':supplier_page(db,batch,items,state,rev)
+    elif mode=='商品档案与异常分析':advanced(db,batch,items,state,rev)
+    elif mode=='变化清单/七表母版':changes_exports(db,batch,items,state,rev)
+    else:legacy.sources(db,batch,items,[],state)
+
 def print_page(db,batch,items,state,rev):
     legacy.printing(db,batch,items,state,rev)
     archives=db.prints(batch)
@@ -413,8 +480,9 @@ def main():
         if st.session_state.get('navigation') not in PAGES:st.session_state['navigation']=PAGES[0]
         page=st.segmented_control('业务入口',PAGES,key='navigation',width='stretch',label_visibility='collapsed') or PAGES[0]
         if page==PAGES[0]:render_workbench(db,batch,items,state,rev)
-        elif page==PAGES[1]:changes_exports(db,batch,items,state,rev)
-        elif page==PAGES[2]:supplier_page(db,batch,items,state,rev)
-        elif page==PAGES[3]:print_page(db,batch,items,state,rev)
-        else:advanced(db,batch,items,state,rev)
+        elif page==PAGES[1]:company_export(db,batch,items,state,rev)
+        elif page==PAGES[2]:
+            from field_printing import print_workbench
+            print_workbench(db,batch,items,state,rev)
+        else:tools_page(db,batch,items,state,rev)
     finally:db.close()

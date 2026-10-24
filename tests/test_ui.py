@@ -15,13 +15,17 @@ def test_all_native_entries_and_optional_evidence(store,batch,monkeypatch):
     at.selectbox(key='selected_batch').select(batch).run()
     assert not at.exception
     from client_app import PAGES
-    assert '03审核' not in PAGES and len(PAGES)==5
-    for page in ['02变化/导出','供货商数据库','打印历史','高级异常明细','01复盘与智能找差异']:
+    assert '03审核' not in PAGES and len(PAGES)==4
+    for page in PAGES:
         at.session_state['navigation']=page;at.run()
         assert not at.exception,page
-        if page=='02变化/导出':
-            assert any('正式导出检查' in x.label for x in at.expander)
-    at.session_state['navigation']='高级异常明细'
+        if page==PAGES[1]:
+            assert any('导出检查' in x.label for x in at.expander)
+            assert any(x.label=='下载公司盘点表.xls' and x.disabled for x in at.get('download_button'))
+    at.session_state['navigation']=PAGES[3]
+    for tool in ['供货商数据库','变化清单/七表母版','来源与本地备份','商品档案与异常分析']:
+        at.session_state['tools_mode']=tool;at.run();assert not at.exception,tool
+    at.session_state['tools_mode']='商品档案与异常分析'
     for view in ['跨店与交易证据','商品档案','参数与批次设置','复盘变化轨迹','成对候选']:
         at.session_state['advanced_mode']=view;at.run()
         assert not at.exception,view

@@ -105,6 +105,8 @@ def validate_all(items):
         for field in ('商品编码','商品条码'):
             if not x.get(field):
                 errors.append(prefix+'缺'+field)
+        if x.get('商品条码') and not str(x['商品条码']).isdigit():
+            errors.append(prefix+'商品条码不是完整数字文本，请核实原件')
         if x.get('核实结论','') not in ('','已排除','确认并附单据','无需调整'):
             errors.append(prefix+'核实结论不在允许选项中')
     for key in ('记录ID','商品编码','商品条码'):
@@ -254,6 +256,7 @@ def create_company_xls(items, meta, vendors):
     blockers = export_blockers(items,meta,vendors)
     if blockers:
         raise ValueError('不能正式导出：'+'；'.join(blockers[:8]))
+    if len(items)>65535:raise ValueError('旧格式XLS最多65535条数据，请按公司批准的批次范围处理')
     import xlwt
     book = xlwt.Workbook(encoding='utf-8')
     sheet = book.add_sheet('Sheet1')
