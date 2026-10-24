@@ -108,6 +108,9 @@ class Store:
         state['meta'].setdefault('parameters',{})
         state['meta'].setdefault('main_suppliers',{})
         state['meta'].setdefault('pair_proofs',{})
+        # 旧批次只在内存补默认值，不改原始行，不清空旧复盘或日志。
+        state['meta'].setdefault('sales_amount',None)
+        state['meta'].setdefault('report',{})
         info=self.db.execute('SELECT created FROM batches WHERE id=?',(batch,)).fetchone()
         state['meta'].setdefault('first_import_at',info[0])
         state['meta'].setdefault('source_files',[r[0] for r in self.db.execute('SELECT filename FROM sources WHERE batch=?',(batch,))])
@@ -127,6 +130,9 @@ class Store:
         cost=payload['meta'].get('sales_cost')
         if cost is not None and (decimal_value(cost) is None or decimal_value(cost)<0):
             raise ValueError('销售成本须为非负有限数字')
+        amount=payload['meta'].get('sales_amount')
+        if amount is not None and (decimal_value(amount) is None or decimal_value(amount)<0):
+            raise ValueError('实际销售金额须为非负有限数字')
         text=dumps(payload)
         with self.db:
             self.db.execute('BEGIN IMMEDIATE')

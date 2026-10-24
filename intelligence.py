@@ -225,6 +225,9 @@ def row_models(items,state,engine=None,cross=None,enrich=()):
            'diff':None if diff is None else float(diff),'amount':None if amount is None else float(amount),
            'cost':None if cost is None else float(cost),'retail':None if decimal_value(x.get('零售价')) is None else float(decimal_value(x['零售价'])),
            'supplier':engine.suppliers.get(x['商品条码'],'未在目录'),'note':x.get('备注',''),
+           'spec':x.get('销售规格',''),'unit':x.get('件装单位',''),
+           'packing':str(info.get('包装系数') or '未提供，不自动推定'),
+           'cost_basis':f"{x.get('原文件','')} / {x.get('工作表','')} / 第{x.get('原始行号','')}行；原件成本{x.get('原始字段',{}).get('成本价','未提供')}；当前成本{cost if cost is not None else '缺失'}",
            'mix_count':mix,'swap_count':swap,'peers':peers,'flags':flags,'unit_hints':hints,'risk_hints':risks,
            'score':score,'score_reason':why,'cross':cross.get(key,[])})
     return rows

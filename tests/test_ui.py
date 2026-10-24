@@ -14,9 +14,13 @@ def test_all_native_entries_and_optional_evidence(store,batch,monkeypatch):
     at=AppTest.from_file(str(APP),default_timeout=30).run()
     at.selectbox(key='selected_batch').select(batch).run()
     assert not at.exception
-    for page in ['02变化/导出','03审核','供货商数据库','打印历史','高级异常明细','01复盘与智能找差异']:
+    from client_app import PAGES
+    assert '03审核' not in PAGES and len(PAGES)==5
+    for page in ['02变化/导出','供货商数据库','打印历史','高级异常明细','01复盘与智能找差异']:
         at.session_state['navigation']=page;at.run()
         assert not at.exception,page
+        if page=='02变化/导出':
+            assert any('正式导出检查' in x.label for x in at.expander)
     at.session_state['navigation']='高级异常明细'
     for view in ['跨店与交易证据','商品档案','参数与批次设置','复盘变化轨迹','成对候选']:
         at.session_state['advanced_mode']=view;at.run()

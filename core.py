@@ -245,7 +245,7 @@ def export_blockers(items, meta, vendors, counts=None, engine=None):
     stats = summary(items,meta.get('sales_cost'))
     if stats['报损率'] is None:
         errors.append('缺含税销售成本或存在无法计算的商品')
-    elif stats['净损耗率']>2:
+    elif max(ZERO,-stats['净差异'])>decimal_value(meta.get('sales_cost'))*D('.002'):
         errors.append('超过2‰·继续复核')
     return list(dict.fromkeys(errors))
 

@@ -12,10 +12,11 @@ from intelligence import CandidateEngine,row_models,FILTERS,DEFAULT_PARAMETERS
 from imports_exports import (identify_batch,supplier_import,generic_rows,cross_candidates,
     transactions_for,import_master,export_workbook)
 from workbench_component import workbench
+from reporting import financial_panel, report_document, validated_meta_value, report_defaults
 import legacy_views as legacy
 
 ROOT=Path(__file__).resolve().parent
-PAGES=['01复盘与智能找差异','02变化/导出','03审核','供货商数据库','打印历史','高级异常明细']
+PAGES=['01复盘与智能找差异','02变化/导出','供货商数据库','打印历史','高级异常明细']
 
 @st.cache_data(max_entries=5,show_spinner=False)
 def parse(gn,gb,ln,lb):return import_pair((gn,gb),(ln,lb))
@@ -55,7 +56,7 @@ def component_action(batch):
     db=Store(dbroot())
     try:
         items,notes,state,rev=db.load(batch);kind=event.get('kind');mapping={x['记录ID']:x for x in items}
-        if kind in ('edit','bulk','undo'):
+        if kind in ('edit','bulk','undo','meta'):
             if event.get('revision')!=rev:raise ValueError('另一窗口已更新。输入草稿仍保留，请刷新并核对后重试')
         if kind=='edit':
             x=mapping.get(event.get('id'));field=event.get('field')
@@ -69,6 +70,24 @@ def component_action(batch):
                 value=event.get('value','')
             updated=patch_items(items,{x['记录ID']:{field:value}})
             db.save(batch,updated,state,rev,actor(),'01单元格编辑',request)
+        elif kind=='meta':
+            scope,field=event.get('scope'),event.get('field')
+            value=validated_meta_value(scope,field,event.get('value'))
+            target=state['meta'] if scope=='finance' else state['meta'].setdefault('report',{})
+            current=target.get(field)
+            # 新汇报日期等默认值是视图默认值，旧批次无需预先写库。
+            if scope=='report' and field not in target:current=report_defaults(state['meta']).get(field)
+            numeric=scope=='finance' or field in ('fresh_sales','fresh_cost','fresh_gain','fresh_loss')
+            changed_elsewhere=(decimal_value(current)!=decimal_value(event.get('base'))) if numeric else (current!=event.get('base'))
+            if changed_elsewhere:
+                raise ValueError('该经营或汇报字段已由另一窗口更新，草稿保留，请刷新核对')
+            if field=='draft':
+                signature=report_document(items,state['meta'])['signature']
+                if event.get('signature')!=signature:raise ValueError('盘点数据已变化，人工文稿草稿保留；请核对最新生成文稿')
+                target['draft_signature']=signature
+            target[field]=value
+            if scope=='report' and field=='reason' and value!=current:target['reason_confirmed']=False
+            db.save(batch,items,state,rev,actor(),'01经营参数/汇报编辑',request)
         elif kind=='bulk':
             updated=patch_items(items,bulk_patches(event.get('text',''),items))
             db.save(batch,updated,state,rev,actor(),'01批量粘贴',request)
@@ -77,7 +96,7 @@ def component_action(batch):
         elif kind=='detail':
             a,b=event.get('a'),event.get('b')
             if a not in mapping or b is not None and b not in mapping:raise ValueError('商品不存在')
-            st.session_state['detail_'+batch]=(a,b);st.session_state['peer_limit_'+batch]=50
+            st.session_state['detail_'+batch]=(a,b);st.session_state['peer_limit_'+batch]=3
         elif kind=='more_peers':st.session_state['peer_limit_'+batch]=st.session_state.get('peer_limit_'+batch,50)+50
         elif kind!='refresh':raise ValueError('未识别操作')
         st.session_state[ackkey]={'id':request,'ok':True}
@@ -101,7 +120,7 @@ def render_workbench(db,batch,items,state,rev):
     blockers=fast_blockers(items,state,engine)
     detail=None
     if selected and selected[0] in mapping:
-        a,b=selected;limit=st.session_state.get('peer_limit_'+batch,50)
+        a,b=selected;limit=st.session_state.get('peer_limit_'+batch,3)
         peers=engine.peers(a,limit=limit)
         pair=engine.pair(a,b) if b and b in mapping else None
         if pair:pair={k:v for k,v in pair.items() if k!='sort'}
@@ -112,7 +131,9 @@ def render_workbench(db,batch,items,state,rev):
     payload={'batch':batch,'revision':rev,'rows':rows,'filters':FILTERS,'enriched':list(enrich),
         'saved_at':last[0] if last else '', 'imported_at':state['meta']['first_import_at'],
         'ack':st.session_state.get('ack_'+batch),'error':st.session_state.get('grid_error_'+batch),
-        'detail':detail,'audit':('符合条件·可准备审批' if not blockers else f'待准备：{len(blockers)}项 / '+ '；'.join(blockers[:2])),
+        'detail':detail,'finance':{'sales_amount':state['meta'].get('sales_amount'),'sales_cost':state['meta'].get('sales_cost')},
+        'panel':financial_panel(items,state['meta']),'report':report_document(items,state['meta']),
+        'audit':('正式导出请在02完整检查' if not blockers else f'正式导出尚有{len(blockers)}项待办，详见02'),
         'stats':{'difference_count':sum(newest_diff(x) not in (None,0) for x in items),
            'done':stats['已复盘'],'pending':sum(x.get('复盘实数') is None and newest_diff(x) not in (None,0) for x in items),
            'loss':num(stats['盘亏']),'gain':num(stats['盘盈']),'net':num(stats['净差异']),
@@ -171,7 +192,9 @@ def changes_exports(db,batch,items,state,rev):
             '核查标签':'；'.join(p['kind']+' ↔ '+p['name']+' / '+p['barcode'] for p in engine.peers(x['记录ID'])),
             '原始行号':x['原始行号'],'原文件':x['原文件']})
     df=table(rows,alt='自动变化与当前实物数量')
-    st.warning('以下核对资料为草稿，未批准，禁止作为公司库存调整提交。公司上传文件须使用03审核后的三列XLS。')
+    with st.expander('正式导出检查 · 公司三列文件'):
+        legacy.review(db,batch,items,state,rev,actor())
+    st.warning('以下核对资料为草稿，未批准，禁止作为公司库存调整提交。公司上传文件须使用上方正式导出检查后的三列XLS。')
     st.download_button('下载变化草稿 CSV（非系统上传）',('草稿·未批准·禁止库存调整提交\n'+df.to_csv(index=False)).encode('utf-8-sig'),'草稿_变化核对_禁止上传.csv','text/csv')
     candidate_scope=st.selectbox('工作簿异常候选范围',['all','summary'],format_func=lambda k:'完整成对候选' if k=='all' else '每商品前3条摘要（全量在软件分页查看）')
     if st.button('生成完整V13工作簿草稿（7表）'):
@@ -362,8 +385,7 @@ def print_page(db,batch,items,state,rev):
 
 def main():
     st.set_page_config(page_title='高速服务区智能盘点 · V13完整客户端',layout='wide',initial_sidebar_state='collapsed')
-    st.title('高速服务区智能盘点')
-    st.caption('V13完整客户端 · 店长只填实数和必要原因 · 本机保存')
+    st.subheader('高速服务区智能盘点')
     db=Store(dbroot())
     try:
         batches=db.list_batches();byid={b['id']:b for b in batches}
@@ -372,38 +394,27 @@ def main():
             st.session_state['selected_batch']=last if last in byid else max(batches,key=lambda b:(b['revision'],b['created']))['id'] if batches else 'new'
         if 'next_batch' in st.session_state:st.session_state['selected_batch']=st.session_state.pop('next_batch')
         if 'next_page' in st.session_state:st.session_state['navigation']=st.session_state.pop('next_page')
-        a,b,c=st.columns([5,2,1])
-        options=['new']+list(byid)
-        selected=a.selectbox('本机批次',options,key='selected_batch',format_func=lambda k:'导入新批次' if k=='new' else
-            f"{byid[k]['store']} · {byid[k]['created'][:16]} · {byid[k]['id'][-6:]}")
-        b.text_input('操作人（可选）',key='operator',placeholder='本机店长')
-        c.button('返回01',on_click=lambda:st.session_state.update(navigation=PAGES[0]))
-        batch=None if selected=='new' else selected
-        if batch:db.set_preference('last_batch',batch)
-        import_panel(db,batch)
+        current=st.session_state['selected_batch']
+        label='当前批次 / 切换、导入与设置' if current=='new' else byid[current]['store']+' · 切换批次、导入与设置'
+        with st.expander(label,expanded=current=='new'):
+            a,b,c=st.columns([5,2,1])
+            options=['new']+list(byid)
+            selected=a.selectbox('本机批次',options,key='selected_batch',format_func=lambda k:'导入新批次' if k=='new' else
+                f"{byid[k]['store']} · {byid[k]['created'][:16]} · {byid[k]['id'][-6:]}")
+            b.text_input('操作人（可选）',key='operator',placeholder='本机店长')
+            c.button('返回01',on_click=lambda:st.session_state.update(navigation=PAGES[0]))
+            batch=None if selected=='new' else selected
+            if batch:db.set_preference('last_batch',batch)
+            import_panel(db,batch)
         if batch is None:
             st.info('只需上传盘盈、盘亏两张报表，自动进入01。无需填写店名、日期或时间。');return
         items,notes,state,rev=db.load(batch)
         meta=state['meta']
-        st.caption(f"{meta['store']} · {meta['period']} · 首次导入北京时间 {meta['first_import_at']} · {len(items)}条 · 原件已留档")
-        st.session_state.setdefault('navigation',PAGES[0])
-        page=st.segmented_control('业务入口',PAGES,key='navigation',width='stretch') or PAGES[0]
+        if st.session_state.get('navigation') not in PAGES:st.session_state['navigation']=PAGES[0]
+        page=st.segmented_control('业务入口',PAGES,key='navigation',width='stretch',label_visibility='collapsed') or PAGES[0]
         if page==PAGES[0]:render_workbench(db,batch,items,state,rev)
         elif page==PAGES[1]:changes_exports(db,batch,items,state,rev)
-        elif page==PAGES[2]:
-            engine=CandidateEngine(items,state['vendors'],meta.get('parameters'),meta.get('main_suppliers'))
-            stats=summary(items,meta.get('sales_cost'))
-            table([{'已复盘数':stats['已复盘'],'未复盘数':stats['未复盘'],
-                    '已复盘归零数':sum(x.get('复盘实数') is not None and newest_diff(x)==0 for x in items),
-                    '盘亏成本':num(stats['盘亏']),'盘盈成本':num(stats['盘盈']),'净差异':num(stats['净差异']),
-                    '未填文字原因':sum(x.get('复盘实数') is not None and newest_diff(x)!=0 and (not str(x.get('备注','')).strip() or decimal_value(x.get('备注')) is not None) for x in items),
-                    '数据错误项':len(validate_all(items)),
-                    '未附核实证据的异常商品':sum(engine.count(x['记录ID'],'all')>0 and not engine.resolved(x['记录ID'],meta.get('pair_proofs',{})) and x.get('核实结论') not in ('已排除','无需调整') for x in items)}],alt='完整V13审核汇总')
-            legacy.review(db,batch,items,state,rev,actor())
-            stats=summary(items,meta.get('sales_cost'))
-            if stats['允许额度'] is not None and stats['净差异'] is not None:
-                st.metric('2‰额度剩余（元）',f"{stats['允许额度']-max(D(0),-stats['净差异']):,.2f}")
-        elif page==PAGES[3]:supplier_page(db,batch,items,state,rev)
-        elif page==PAGES[4]:print_page(db,batch,items,state,rev)
+        elif page==PAGES[2]:supplier_page(db,batch,items,state,rev)
+        elif page==PAGES[3]:print_page(db,batch,items,state,rev)
         else:advanced(db,batch,items,state,rev)
     finally:db.close()

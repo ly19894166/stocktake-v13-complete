@@ -11,7 +11,9 @@ const browser=await chromium.launch({channel:process.env.STOCKTAKE_BROWSER_CHANN
 const page=await browser.newPage({viewport:{width:1680,height:1100}});
 const errors=[];page.on('pageerror',e=>errors.push(String(e)));
 try{
-  await page.goto(process.env.STOCKTAKE_TEST_URL||'http://127.0.0.1:18523',{waitUntil:'networkidle'});
+  await page.goto(process.env.STOCKTAKE_TEST_URL||'http://127.0.0.1:18532',{waitUntil:'networkidle'});
+  const settings=page.locator('summary').filter({hasText:/切换批次、导入与设置|当前批次 \/ 切换、导入与设置/});
+  if(await settings.count()&&await settings.locator('..').getAttribute('open')===null)await settings.click();
   const importer=page.locator('summary').filter({hasText:'导入新的初盘 / 恢复已有批次'});
   if(await importer.locator('..').getAttribute('open')===null)await importer.click();
   await page.locator('input[type=file]').nth(0).setInputFiles(path.join(root,'runtime','simulated','模拟盘盈.xls'));
@@ -23,18 +25,21 @@ try{
   await search.fill(a);
   const rowA=grid.locator('tbody tr').filter({has:page.getByRole('textbox',{name:`备注 ${a}`,exact:true})});
   const aid=await rowA.getAttribute('data-id');
-  const peer=rowA.locator('.peer').filter({hasText:b});await peer.waitFor({timeout:20000});
-  const bid=await peer.getAttribute('data-other');
-  const rowB=()=>grid.locator(`tr[data-id="${bid}"]`);
+  await rowA.locator('.hint-summary').click();
+  const panel=grid.locator('.panel');
+  const peer=panel.locator('.peer').filter({hasText:b});await peer.waitFor({timeout:20000});
+  const rowB=()=>grid.locator('tbody tr').filter({has:page.getByRole('textbox',{name:`备注 ${b}`,exact:true})});
   const waitSaved=async()=>{await page.waitForTimeout(350);await grid.locator('[data-testid="save-status"]').filter({hasText:'已保存'}).waitFor({timeout:20000})};
+  await peer.click();await panel.locator('.pair-card').nth(1).waitFor({timeout:20000});await panel.getByRole('button',{name:'定位此商品',exact:true}).last().click();
+  await rowB().waitFor({timeout:20000});
+  const bid=await rowB().getAttribute('data-id');
   await rowA.getByRole('textbox',{name:`备注 ${a}`,exact:true}).fill('模拟人工原因保留');await search.click();await waitSaved();
-  await peer.click();await rowB().waitFor({timeout:20000});
   await rowB().getByRole('textbox',{name:`复盘实数 ${b}`,exact:true}).fill('20');await search.click();await waitSaved();
-  await grid.locator(`tr[data-id="${aid}"] .peer[data-other="${bid}"]`).waitFor({state:'hidden',timeout:20000});
+  await page.waitForFunction(({a,b})=>{const host=[...document.querySelectorAll('*')].find(el=>el.shadowRoot?.querySelector('#stocktake-workbench'));const s=host?.shadowRoot.querySelector('#stocktake-workbench').__inventory;return s&&s.rows.get(b).diff===0&&s.rows.get(b).mix_count===0},{a:aid,b:bid});
   if(await rowA.getByRole('textbox',{name:`备注 ${a}`,exact:true}).inputValue()!=='模拟人工原因保留')throw new Error('人工备注未保留');
   await rowB().getByRole('textbox',{name:`复盘实数 ${b}`,exact:true}).fill('10');await search.click();await waitSaved();
-  await grid.locator(`tr[data-id="${aid}"] .peer[data-other="${bid}"]`).waitFor({timeout:20000});
-  for(const label of ['02变化/导出','03审核','供货商数据库','打印历史','高级异常明细']){
+  await rowA.locator('.hint-summary').waitFor({timeout:20000});
+  for(const label of ['02变化/导出','供货商数据库','打印历史','高级异常明细']){
     await page.getByText(label,{exact:true}).first().click();await page.waitForTimeout(500);
     if(await page.getByTestId('stException').count())throw new Error(`${label}: 页面异常`);
   }
