@@ -13,12 +13,12 @@ export default function(component) {
     let local={};try{local=JSON.parse(localStorage.getItem('stocktake:'+data.batch)||'{}')}catch{}
     S=root.__inventory={query:local.query||'',filters:local.filters||[],category:local.category||'',supplier:local.supplier||'',sort:local.sort||'amount',page:0,size:20,drafts:local.drafts||{},queue:[],inflight:null,rows:new Map(),dom:new Map(),focus:null,seenAck:null,viewKey:'',restore:!!Object.keys(local.drafts||{}).length};
     root.innerHTML=`<div class="metrics" data-testid="metrics"></div><div class="audit"></div>
-      <div class="toolbar"><input class="search" aria-label="搜索商品名、编码、完整条码或尾号" placeholder="搜索商品名 / 商品编码 / 完整条码 / 条码尾号4–8位"><select class="category" aria-label="品类筛选"></select><select class="supplier" aria-label="供应商筛选"></select><button class="clear">清除筛选</button><button class="undo">撤销上次输入</button><button class="bulk-toggle">批量粘贴</button><button class="refresh">刷新数据</button></div>
-      <div class="chips"></div><div class="toolbar"><select class="sort" aria-label="建议排序"><option value="amount">金额优先</option><option value="quantity">数量优先</option><option value="mix">同类串码优先</option><option value="category">按品类现场找货</option><option value="score">综合建议分</option></select><select class="size" aria-label="每页显示"><option value="20">优先20条</option><option value="50">每页50条</option><option value="100">每页100条</option></select><span class="queue-help muted">建议顺序供找差异，不改变公司审核标准。</span></div>
+      <div class="toolbar main-toolbar"><input class="search" aria-label="搜索商品名、编码、完整条码或尾号" placeholder="商品名称 / 条码尾号4–8位 / 商品编码"><select class="category" aria-label="品类筛选"></select><button class="undo">撤销</button><button class="bulk-toggle">批量粘贴</button><details class="more-filters"><summary>更多筛选</summary><div class="filter-body"><select class="supplier" aria-label="供应商筛选"></select><select class="sort" aria-label="建议排序"><option value="amount">差异金额优先</option><option value="quantity">差异数量优先</option><option value="mix">同类串码优先</option><option value="category">按品类找货</option><option value="score">综合建议分</option></select><select class="size" aria-label="每页显示"><option value="20">每页20条</option><option value="50">每页50条</option><option value="100">每页100条</option></select><button class="clear">清除筛选</button><button class="refresh">刷新数据</button></div></details></div>
+      <details class="quick-filters"><summary>快捷筛选 · 按需要展开</summary><div class="chips"></div></details>
       <select class="locate hidden" aria-label="条码尾号匹配结果"></select><div class="message"></div>
-      <div class="bulk hidden"><strong>批量粘贴复盘数</strong><p class="muted">每行：完整商品条码 Tab 复盘实数 Tab 人工备注（备注可省略）。可从Excel粘贴；全部校验通过后一次保存，含重复条码整次撤销。</p><textarea aria-label="批量粘贴复盘数据" placeholder="690…\t12\t现场找到库存"></textarea><div class="toolbar"><button class="primary bulk-submit">校验并保存全部粘贴行</button></div></div>
+      <div class="bulk hidden"><strong>批量粘贴复盘数</strong><p class="muted">每行：完整商品条码 Tab 复盘实数 Tab 人工备注（备注可省略）。全部校验后一次保存。</p><textarea aria-label="批量粘贴复盘数据" placeholder="690…　12　现场找到库存"></textarea><div class="toolbar"><button class="primary bulk-submit">保存粘贴行</button></div></div>
       <div class="panel hidden" aria-live="polite"></div><div class="guide"><span class="result-count"></span><span class="saved" data-testid="save-status"></span></div>
-      <div class="table-wrap"><table aria-label="01现场复盘表"><thead><tr><th>序号</th><th>商品名称 / 条码 / 编码</th><th>最新差异 / 成本</th><th>复盘实数</th><th>人工备注 / 原因</th><th>实时核查标签 · 点击对应商品</th><th>系统 / 初盘 / 当前总数</th><th>供货商</th></tr></thead><tbody></tbody></table></div>
+      <div class="table-wrap"><table aria-label="01现场复盘表"><thead><tr><th>序号</th><th>商品名称 / 系统与初盘</th><th>最新差异 / 成本</th><th>复盘实数</th><th>人工备注</th><th>查找线索</th></tr></thead><tbody></tbody></table></div>
       <div class="pagination"><button class="prev">上一页</button><span class="page-info"></span><button class="next">下一页</button></div>`;
     const q=s=>root.querySelector(s);
     const remember=()=>{try{localStorage.setItem('stocktake:'+S.data.batch,JSON.stringify({query:S.query,filters:S.filters,category:S.category,supplier:S.supplier,sort:S.sort,drafts:S.drafts}))}catch{}};
@@ -42,9 +42,11 @@ export default function(component) {
     S.openDetail=(a,b)=>{S.focus=b||a;S.enqueue('detail',{a,b});S.render()};
     S.render=()=>{
       const d=S.data,stats=d.stats;
-      const metrics=[['总差异条数',stats.difference_count],['已填写复盘数',stats.done],['当前盘亏金额',stats.loss],['当前盘盈金额',stats.gain],['净差异',stats.net],['待现场复盘数',stats.pending]];
-      q('.metrics').innerHTML=metrics.map(([label,value])=>`<div class="metric"><small>${esc(label)}</small><strong class="${label.includes('金额')||label==='净差异'?cls(value):''}">${esc(fmt(value,label.includes('金额')||label==='净差异'?2:4))}</strong></div>`).join('');
-      q('.audit').innerHTML=`<span>报损率 <b>${stats.rate===null?'待填同期含税成本':esc(fmt(stats.rate))+'‰'}</b></span><span>归零 ${stats.zero_count} 条</span><span class="muted">${esc(d.audit)}</span>`;
+      const metrics=[['盘亏金额',stats.loss],['盘盈金额',stats.gain],['净差异',stats.net],['待填复盘',stats.pending]];
+      q('.metrics').innerHTML=metrics.map(([label,value])=>`<div class="metric"><small>${esc(label)}</small><strong class="${label==='待填复盘'?'':cls(value)}">${esc(fmt(value,label==='待填复盘'?0:2))}</strong></div>`).join('');
+      const status=stats.standard==='ok'?'ok':stats.standard==='bad'?'bad':'pending';
+      const title=stats.standard==='ok'?'2‰当前测算达标':stats.standard==='bad'?'2‰当前测算超标':'2‰待填含税成本';
+      q('.audit').innerHTML=`<span>销售额 <b>¥${esc(fmt(stats.sales_amount,2))}</b></span><span>含税成本 <b>¥${esc(fmt(stats.sales_cost,2))}</b></span><span>损耗率 <b>${stats.rate===null?'待计算':esc(fmt(stats.rate,2))+'‰'}</b></span><span class="status ${status}">${title}</span><span class="muted">${stats.allowed===null?'尚未计算2‰额度':'2‰额度 ¥'+esc(fmt(stats.allowed,2))+' · '+(stats.remaining>=0?'剩余':'超额')+' ¥'+esc(fmt(Math.abs(stats.remaining),2))}</span><span class="muted">${stats.pending?'尚有 '+stats.pending+' 条待填复盘':esc(d.audit)}</span>`;
       const message=q('.message');message.innerHTML=d.error?`<div class="error">${esc(d.error)}</div>`:S.restore?'<div class="notice">已保留上次未确认草稿。检查黄色输入框，按Enter或离开单元格保存；不会把空白当作0。</div>':'';
       q('.chips').innerHTML=d.filters.map(f=>`<button class="chip ${S.filters.includes(f)?'active':''}" data-filter="${esc(f)}">${esc(f)}</button>`).join('');
       q('.chips').querySelectorAll('button').forEach(b=>b.onclick=()=>{S.filters=S.filters.includes(b.dataset.filter)?S.filters.filter(f=>f!==b.dataset.filter):[...S.filters,b.dataset.filter];S.page=0;remember();S.render()});
@@ -61,7 +63,7 @@ export default function(component) {
       for(const tr of [...tbody.children])if(!keep.has(tr.dataset.id))tr.remove();
       for(let i=0;i<visible.length;i++){
         const r=visible[i];let tr=S.dom.get(r.id);
-        if(!tr){tr=document.createElement('tr');tr.dataset.id=r.id;tr.innerHTML='<td class="seq"></td><td class="product"></td><td class="difference num"></td><td><input class="edit-count" inputmode="decimal"></td><td><textarea class="edit-note" rows="1"></textarea></td><td class="hints"></td><td class="qty num"></td><td class="vendor"></td>';S.dom.set(r.id,tr);
+        if(!tr){tr=document.createElement('tr');tr.dataset.id=r.id;tr.innerHTML='<td class="seq"></td><td class="product"></td><td class="difference num"></td><td><input class="edit-count" inputmode="decimal"></td><td><textarea class="edit-note" rows="1"></textarea></td><td class="hints"></td>';S.dom.set(r.id,tr);
           for(const [field,selector] of [['复盘实数','.edit-count'],['备注','.edit-note']]){
             const input=tr.querySelector(selector);input.dataset.field=field;input.setAttribute('aria-label',`${field} ${r.barcode}`);
             input.oninput=()=>{const prior=S.drafts[r.id]?.[field];S.drafts[r.id]??={};S.drafts[r.id][field]={value:input.value,base:prior?prior.base:(field==='复盘实数'?S.rows.get(r.id).recount:S.rows.get(r.id).note)};q('.saved').textContent='有未确认草稿 · Enter或离开单元格保存';remember()};
@@ -71,17 +73,18 @@ export default function(component) {
         }
         tr.className=r.id===S.focus?'selected':'';
         tr.querySelector('.seq').textContent=r.sequence;
-        tr.querySelector('.product').innerHTML=`<span class="name">${esc(r.name)}</span><span class="codes">${esc(r.barcode)} · 编码 ${esc(r.code)}</span><span class="minor">${esc(r.category)} · 建议分${r.score}</span><button class="row-link" title="${esc(r.score_reason)}">轨迹 / 详情</button>`;
+        tr.querySelector('.product').innerHTML=`<span class="name">${esc(r.name)}</span><span class="codes">${esc(r.barcode)}</span><span class="minor">系统 ${esc(fmt(r.system))} · 初盘 ${esc(fmt(r.initial))}</span><button class="row-link" title="查看商品编码、供应商、对照和轨迹">详细信息 ›</button>`;
         tr.querySelector('.row-link').onclick=()=>S.openDetail(r.id,null);
         tr.querySelector('.difference').innerHTML=`<strong class="${cls(r.diff)}">${r.diff>0?'+':''}${esc(fmt(r.diff))}</strong><span class="minor ${cls(r.amount)}">¥ ${esc(fmt(r.amount,2))}</span>`;
         for(const [field,selector,value] of [['复盘实数','.edit-count',r.recount],['备注','.edit-note',r.note]]){const input=tr.querySelector(selector);const draft=S.drafts[r.id]?.[field];const next=draft?draft.value:(value??'');if(parentElement.activeElement!==input&&input.value!==String(next))input.value=String(next)}
         const hints=tr.querySelector('.hints');
-        hints.innerHTML=(r.peers||[]).map(p=>`<button class="peer" data-other="${esc(p.id)}" title="${esc(p.evidence)}"><span class="tag">${esc(p.kind)} · ${esc(p.confidence)}</span>↔ ${esc(p.name)}<span class="minor">${esc(p.barcode)} · 差异${p.diff>0?'+':''}${esc(fmt(p.diff))} · ${esc(p.evidence)}</span></button>`).join('');
-        hints.querySelectorAll('.peer').forEach(b=>b.onclick=()=>S.openDetail(r.id,b.dataset.other));
-        if(r.mix_count+r.swap_count>(r.peers||[]).length){const b=document.createElement('button');b.className='peer';b.textContent=`展开候选（串码${r.mix_count} / A换B ${r.swap_count}）`;b.onclick=()=>S.openDetail(r.id,null);hints.appendChild(b)}
-        for(const hint of [...r.unit_hints,...(r.risk_hints||[]),...(r.cross?.length?['可能跨店调拨：'+r.cross.map(c=>c.门店).join('、')]:[])]){const el=document.createElement('div');el.className='risk';el.textContent=hint;hints.appendChild(el)}
-        tr.querySelector('.qty').innerHTML=`<span class="minor">系统 ${esc(fmt(r.system))}</span><span class="minor">初盘 ${esc(fmt(r.initial))}</span><b>当前 ${esc(fmt(r.total))}</b>`;
-        tr.querySelector('.vendor').textContent=r.supplier;
+        const counts=[];
+        if(r.mix_count)counts.push('疑似串码 '+r.mix_count+'项');
+        if(r.swap_count)counts.push('A换B '+r.swap_count+'项');
+        const riskCount=(r.unit_hints||[]).length+(r.risk_hints||[]).length+(r.cross||[]).length;
+        if(riskCount)counts.push('其他线索 '+riskCount+'项');
+        hints.innerHTML=counts.length?`<button class="peer" title="点击查看对应商品及依据">${esc(counts.join(' · '))} ›</button>`:'<span class="minor">—</span>';
+        const summaryBtn=hints.querySelector('button');if(summaryBtn)summaryBtn.onclick=()=>S.openDetail(r.id,null);
         if(tbody.children[i]!==tr)tbody.insertBefore(tr,tbody.children[i]||null);
       }
       const panel=q('.panel');const detail=d.detail;
