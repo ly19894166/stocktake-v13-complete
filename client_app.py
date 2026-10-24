@@ -151,9 +151,11 @@ def render_workbench(db,batch,items,state,rev):
     order,partners=linked_order(items,engine) if len(items)<=1500 else ([x['记录ID'] for x in items],{})
     for row in rows:
         peer=partners.get(row['id']);row['partner']=peer
-        if peer and all(p['id']!=peer for p in row['peers']):
+        # 原始序号视图显示引擎最优项；联排视图才使用相邻配对项。
+        row['partner_peer']=None
+        if peer and (not row['peers'] or row['peers'][0]['id']!=peer):
             p=engine.pair(row['id'],peer);other=engine.items[peer]
-            row['peers']=[{k:v for k,v in p.items() if k!='sort'}|{'id':peer,'name':other['商品名称'],'barcode':other['商品条码'],'diff':float(engine.diff[peer])}]+row['peers'][:2]
+            row['partner_peer']={'id':peer,'name':other['商品名称'],'barcode':other['商品条码'],'diff':float(engine.diff[peer]),'kind':p['kind'],'mix':p['mix']}
         row['peers']=[{k:p[k] for k in ('id','name','barcode','diff','kind','mix')} for p in row['peers'][:1]]
     payload={'batch':batch,'revision':rev,'rows':rows,'pair_order':order,'filters':FILTERS,'enriched':list(enrich),
         'saved_at':last[0] if last else '', 'imported_at':state['meta']['first_import_at'],
@@ -452,6 +454,12 @@ def print_page(db,batch,items,state,rev):
 
 def main():
     st.set_page_config(page_title='高速服务区智能盘点 · V13完整客户端',layout='wide',initial_sidebar_state='collapsed')
+    if st.session_state.get('navigation',PAGES[0])==PAGES[0]:
+        st.html('''<style>[data-testid="stMainBlockContainer"]{padding:3.8rem 1.5rem 1rem;max-width:none}
+        [data-testid="stMainBlockContainer"] [data-testid="stVerticalBlock"]{gap:.55rem}
+        [data-testid="stMainBlockContainer"] h3{font-size:1.25rem;padding:.1rem 0 .35rem}
+        [data-testid="stMainBlockContainer"] [data-testid="stExpander"] summary{padding:.35rem .65rem;min-height:32px}
+        </style>''')
     st.subheader('高速服务区智能盘点')
     db=Store(dbroot())
     try:

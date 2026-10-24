@@ -1,7 +1,7 @@
 {
   "pass": true,
   "simulated_only": true,
-  "pytest_passed": 82,
+  "pytest_passed": 83,
   "private_business_files_included": false,
   "results": {
     "browser": {
@@ -27,8 +27,8 @@
           "name": "鼠标滚轮从第一条连续到底，450条始终无空白和回顶",
           "pass": true,
           "detail": {
-            "wheel_steps": 22,
-            "last_scroll": 47842
+            "wheel_steps": 8,
+            "last_scroll": 16752
           }
         },
         {
@@ -41,7 +41,7 @@
           "pass": true,
           "detail": {
             "rows": 200,
-            "elapsed_ms": 32222
+            "elapsed_ms": 28394
           }
         },
         {
@@ -94,8 +94,8 @@
         {
           "width": 1366,
           "height": 768,
-          "columns": 6,
-          "table_width": 1204,
+          "columns": 13,
+          "table_width": 1316,
           "overflow": false,
           "inside": true,
           "internalScroll": false
@@ -103,8 +103,8 @@
         {
           "width": 1920,
           "height": 1080,
-          "columns": 6,
-          "table_width": 1758,
+          "columns": 13,
+          "table_width": 1870,
           "overflow": false,
           "inside": true,
           "internalScroll": false
@@ -112,8 +112,8 @@
         {
           "width": 2560,
           "height": 1440,
-          "columns": 6,
-          "table_width": 2398,
+          "columns": 13,
+          "table_width": 2510,
           "overflow": false,
           "inside": true,
           "internalScroll": false
@@ -193,12 +193,119 @@
       "no_database_writes": true,
       "page_errors": []
     },
-    "more_tools": {
+    "compact": {
       "pass": true,
       "simulated_only": true,
-      "supplier_import_and_swap": true,
-      "cross_store_upload": true,
-      "archives_parameters_trajectory_seven_tables_backup": true,
+      "resolutions": [
+        {
+          "width": 1366,
+          "height": 768,
+          "columns": [
+            "序号",
+            "品类",
+            "商品名称",
+            "商品条码",
+            "系统数",
+            "初盘数",
+            "复盘实数",
+            "当前实物总数",
+            "最新差异",
+            "备注／原因",
+            "核查标签"
+          ],
+          "visible_rows": 10,
+          "table_top": 340.953125,
+          "overflow": false,
+          "input_height": 30,
+          "note_tag": "INPUT",
+          "all_codes_fit": true,
+          "core_cells_fit": true,
+          "ordinary_row_height_min": 38,
+          "ordinary_row_height_max": 38
+        },
+        {
+          "width": 1920,
+          "height": 1080,
+          "columns": [
+            "序号",
+            "品类",
+            "商品名称",
+            "商品条码",
+            "商品编码",
+            "系统数",
+            "初盘数",
+            "复盘实数",
+            "当前实物总数",
+            "最新差异",
+            "备注／原因",
+            "供货商",
+            "核查标签"
+          ],
+          "visible_rows": 18,
+          "table_top": 340.953125,
+          "overflow": false,
+          "input_height": 30,
+          "note_tag": "INPUT",
+          "all_codes_fit": true,
+          "core_cells_fit": true,
+          "ordinary_row_height_min": 38,
+          "ordinary_row_height_max": 38
+        },
+        {
+          "width": 2560,
+          "height": 1440,
+          "columns": [
+            "序号",
+            "品类",
+            "商品名称",
+            "商品条码",
+            "商品编码",
+            "系统数",
+            "初盘数",
+            "复盘实数",
+            "当前实物总数",
+            "最新差异",
+            "备注／原因",
+            "供货商",
+            "核查标签"
+          ],
+          "visible_rows": 28,
+          "table_top": 340.953125,
+          "overflow": false,
+          "input_height": 30,
+          "note_tag": "INPUT",
+          "all_codes_fit": true,
+          "core_cells_fit": true,
+          "ordinary_row_height_min": 38,
+          "ordinary_row_height_max": 38
+        }
+      ],
+      "cases": [
+        {
+          "name": "旧flowVersion3串码/金额排序一次性迁移为原始序号，1至450完整升序",
+          "pass": true
+        },
+        {
+          "name": "系统/初盘/复盘/当前总数/差异横向可见，找回4和-1816.92按原引擎更新，点击可查看计算依据",
+          "pass": true
+        },
+        {
+          "name": "原始调整0.4保留：实数0时差异-9.6；清空实数恢复未复盘，与0严格区分",
+          "pass": true
+        },
+        {
+          "name": "单行备注可展开编辑多行；串码提示不撑高，点击定位，归零撤销/恢复重现且备注保留",
+          "pass": true
+        },
+        {
+          "name": "四种排序可切换，串码主动联排后可恢复1至450，后台记录及导出顺序未变",
+          "pass": true
+        },
+        {
+          "name": "450条鼠标滚轮到底无分页/白屏，表头固定，深处填0自动保存不回顶不失焦",
+          "pass": true
+        }
+      ],
       "page_errors": []
     }
   }

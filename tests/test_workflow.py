@@ -89,3 +89,20 @@ def test_coalesced_save_keeps_last_cell_undo(store,batch):
     store.undo_last(batch,rev)
     restored=store.load(batch)[0]
     assert restored[0]['复盘实数']==1 and restored[1]['复盘实数']==2 and restored[1]['备注']==b['备注']
+
+def test_workbench_best_candidate_independent_of_greedy_pairing(store,workflow_items,monkeypatch):
+    """原始序号视图不能误把已分组的次优对象冒充引擎最优线索。"""
+    from pathlib import Path
+    from streamlit.testing.v1 import AppTest
+    import client_app
+    batch=store.create(workflow_items,[],'simulated-best-candidate')
+    items,_,state,_=store.load(batch);engine=CandidateEngine(items,state['vendors'])
+    captured={};monkeypatch.setenv('STOCKTAKE_DATA_DIR',str(store.root))
+    monkeypatch.setattr(client_app,'workbench',lambda payload,*args:captured.update(payload))
+    app=AppTest.from_file(str(Path(__file__).resolve().parents[1]/'app.py'),default_timeout=30).run()
+    assert not app.exception
+    assert any(r['partner_peer'] for r in captured['rows'])
+    for row in captured['rows']:
+        expected=engine.peers(row['id'],limit=1)
+        assert [p['id'] for p in row['peers']]==[p['id'] for p in expected]
+        if row['partner_peer']:assert row['partner_peer']['id']==row['partner']

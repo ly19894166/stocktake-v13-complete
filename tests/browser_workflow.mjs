@@ -50,7 +50,7 @@ try{
   await row(a.barcode).locator('.edit-count').fill('5');await search().click();await saved();
   const current=(await data()).rows.find(x=>x.id===a.id);
   check(current.initial_diff===-2888&&current.diff===-2884&&current.change===4&&current.amount===-1816.92,'找回4件算错');
-  check((await row(a.barcode).innerText()).includes('找回4件'),'变化结果未显示');
+  check((await row(a.barcode).innerText()).includes('找回4'),'变化结果未显示');
   await row(a.barcode).locator('.edit-note').fill('模拟人工备注保持独立');await search().click();await saved();
   record('系统2889、初盘1、复盘5：-2888→-2884，找回4件，成本-1816.92');
   await row(b.barcode).locator('.edit-count').fill('20');await search().click();await saved();
