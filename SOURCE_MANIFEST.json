@@ -1,0 +1,223 @@
+{
+  "description": "首次公开源码提交的文件清单；SHA256按Git暂存后的文件字节计算。此清单不包含其自身。",
+  "repository": "ly19894166/stocktake-v13-complete",
+  "visibility": "public",
+  "test_data": "only independently generated fictional samples; no company records",
+  "local_pytest": {
+    "passed": 52,
+    "failed": 0
+  },
+  "actual_browser": {
+    "passed": true,
+    "simulated_rows": 12,
+    "inline_pair": true,
+    "zero_removal": true,
+    "reappearance": true,
+    "manual_note_preserved": true,
+    "native_pages": true
+  },
+  "fresh_history": true,
+  "file_count_excluding_manifest": 40,
+  "files": [
+    {
+      "path": ".gitattributes",
+      "bytes": 176,
+      "sha256": "db00cb4f786b6cad833fe2ccee1c5bdaddaec34585be38c6029d9fc7400d64ed"
+    },
+    {
+      "path": ".github/pull_request_template.md",
+      "bytes": 506,
+      "sha256": "af63314e29544541451992bf2514a7f3a0bdd5a8071ddd0237a379b39439afeb"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "bytes": 797,
+      "sha256": "b81232cf70f0b0527542c6c6c2bfb5dd153f6c1212d47cbd7ce22910b6ea176c"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 567,
+      "sha256": "dd95c7efa270fe1a7d960a88f40236b1eb8ceb9dd355074312136653c3060fda"
+    },
+    {
+      "path": ".streamlit/config.toml",
+      "bytes": 206,
+      "sha256": "8e205f41eb511ca2419c62be252b1410a5764df6a8376e5d35f361784de6343d"
+    },
+    {
+      "path": "AGENTS.md",
+      "bytes": 893,
+      "sha256": "ab6fcd9f5bddff6e75c02bb0f20d12ed42ef40a0118a5d3c8b95ffd6c8a94f47"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "bytes": 1326,
+      "sha256": "bba0636a5cfa4d35e672a67b5296681e065b66b1278ef095c958825a567787b0"
+    },
+    {
+      "path": "README.md",
+      "bytes": 6142,
+      "sha256": "cd7d4e95caa986d5df0e4c8d77356a6f33d1ee7368a9107ccd411aff18d6ba62"
+    },
+    {
+      "path": "SECURITY.md",
+      "bytes": 703,
+      "sha256": "8ae901ce638a6d91de12a2f6a88f6b28991447ec7da7b6a9724254cf51a5d0a0"
+    },
+    {
+      "path": "app.py",
+      "bytes": 35,
+      "sha256": "b1e34cfdb981fdd7106cdb2f15b2f29bccb4022c002420a98288aebcaaf7668a"
+    },
+    {
+      "path": "bootstrap.py",
+      "bytes": 2012,
+      "sha256": "3e15aaf1758b9141b300224ac2520483c79682e3c7aab29aa76bc43cda57771f"
+    },
+    {
+      "path": "client_app.py",
+      "bytes": 29904,
+      "sha256": "9a0b612d0f35f66a446571c8950279ae2bf5d0be83ff600d929ca190c8e3c91b"
+    },
+    {
+      "path": "core.py",
+      "bytes": 15729,
+      "sha256": "4fe3983ad8e3a8b9f4c25ab44a40d0e924987d5bc3fed4f5dca2337602686b08"
+    },
+    {
+      "path": "imports_exports.py",
+      "bytes": 17034,
+      "sha256": "aa41c8f5d1f5286764038d3a81efef71e5006f8011dd27b4c992f436dad56248"
+    },
+    {
+      "path": "intelligence.py",
+      "bytes": 14633,
+      "sha256": "df53f71b0a7c5b5dacdab283ec20f4f58f5f0c350dcc3cbd577cce0df8a197b8"
+    },
+    {
+      "path": "legacy_views.py",
+      "bytes": 9431,
+      "sha256": "10d8cdae689181d296d9626f14e2660abefe329da02a1d57bf99ffbad68a04c4"
+    },
+    {
+      "path": "pdf_renderer.py",
+      "bytes": 4063,
+      "sha256": "aff8e8c35af43ce17c1852a93b5786ca2d2a436e7dd73d3d1de622014895ec3d"
+    },
+    {
+      "path": "print_manager.py",
+      "bytes": 3424,
+      "sha256": "b4a2a9f4d06228b29c785271e2ac96991d0403bcf5f2407d24392a535ae339ef"
+    },
+    {
+      "path": "requirements-dev.txt",
+      "bytes": 117,
+      "sha256": "f7f0d0f6b33b58d473b403601637e02f52b97220f0b7d4bcdfe85badece2dd8d"
+    },
+    {
+      "path": "requirements-lock.txt",
+      "bytes": 717,
+      "sha256": "922f57a349a915cba1a8c7db5173756e9e0b9d6e4d332f06255f529f3c560329"
+    },
+    {
+      "path": "requirements.txt",
+      "bytes": 25,
+      "sha256": "c5c47ecfbac90e9ce72b9e8a547f723374dc09af7dd51685093d122c8199671f"
+    },
+    {
+      "path": "run_tests.bat",
+      "bytes": 462,
+      "sha256": "9f58457d3507dc46ba1630e58a5accae9e2a1f70c09a6c18b7d0d58fc3b7f553"
+    },
+    {
+      "path": "scripts/check_public_tree.py",
+      "bytes": 3814,
+      "sha256": "f4ede8c0e23f80a6c2a6d1a4a74873120fc84839fd274a84c993a434d2a5b507"
+    },
+    {
+      "path": "source_core.py",
+      "bytes": 13748,
+      "sha256": "4505b0966cdb445c637107c593eed6612aa28de3a6216de9cdeaff6a5c71e0ca"
+    },
+    {
+      "path": "start_windows.bat",
+      "bytes": 236,
+      "sha256": "5d611463a40c8ca8c615bf5165d7f4b6575069d9068ff0b92f1c4ed0e5402367"
+    },
+    {
+      "path": "storage.py",
+      "bytes": 15424,
+      "sha256": "b088d89a083219f808c289956a80004c1c1a9d7100afeceffa5f04843400a75a"
+    },
+    {
+      "path": "tests/browser_synthetic.mjs",
+      "bytes": 3633,
+      "sha256": "783fae67c41e9bf9be00dfb9ee8ca1593fd215d88855e9d5935b78d5dcf958e0"
+    },
+    {
+      "path": "tests/conftest.py",
+      "bytes": 747,
+      "sha256": "1a5fc706a34bd9f93d0c72cce20f017ad7b762366e8f7aa6d567582ff77c7b9d"
+    },
+    {
+      "path": "tests/synthetic_data.py",
+      "bytes": 3171,
+      "sha256": "f4077b907439af351bc2c7df853cc8971ad988631afe18c4981a284a41c4b819"
+    },
+    {
+      "path": "tests/test_complete.py",
+      "bytes": 10449,
+      "sha256": "ba0465cac385c26d5cb687fbec1eb4834d56d50d945bf464663d84142f43de95"
+    },
+    {
+      "path": "tests/test_storage_print.py",
+      "bytes": 5045,
+      "sha256": "a90862711e70c8e2cf2458a30f7775f6ddae20eaafb01b45216af907fdb77484"
+    },
+    {
+      "path": "tests/test_synthetic_regression.py",
+      "bytes": 2055,
+      "sha256": "38afdf37e81694dab37022df25fcd275299a1b6489d5df4db40cbcd332c9d952"
+    },
+    {
+      "path": "tests/test_ui.py",
+      "bytes": 1297,
+      "sha256": "c5493fe0dc0a75958c408b557c7ace80998be14b1796f7a0b2d64944d3325125"
+    },
+    {
+      "path": "tests/test_v13.py",
+      "bytes": 7993,
+      "sha256": "4afaf5ced045c0f35b077249df4403aa5186ba7798df3929252428258eab7734"
+    },
+    {
+      "path": "ui/workbench.css",
+      "bytes": 4317,
+      "sha256": "cfef37797ca292573b10df9852cb8f71b8bfae1b2e4eb83d1d1a5adeca559e4b"
+    },
+    {
+      "path": "ui/workbench.js",
+      "bytes": 17189,
+      "sha256": "08eaf91adfccce16b8ea90f3015b338b5e8854f8869c23b1a44a2f07225f6d93"
+    },
+    {
+      "path": "vendors.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "workbench_component.py",
+      "bytes": 620,
+      "sha256": "62cc3043f88d3d1313ece5aacc2f3b7ade99a4ad811d002458258b24501c9fd1"
+    },
+    {
+      "path": "启动完整盘点客户端.cmd",
+      "bytes": 40,
+      "sha256": "03c41713ded6a85fda697b9f5b9009cab6445fcb8fbacd949f663c81a2b4bdb1"
+    },
+    {
+      "path": "启动盘点软件V1.3.cmd",
+      "bytes": 40,
+      "sha256": "03c41713ded6a85fda697b9f5b9009cab6445fcb8fbacd949f663c81a2b4bdb1"
+    }
+  ]
+}
