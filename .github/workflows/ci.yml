@@ -25,3 +25,25 @@ jobs:
         env:
           STOCKTAKE_CJK_FONT: /usr/share/fonts/truetype/wqy/wqy-zenhei.ttc
         run: python -m pytest tests -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: 安装浏览器模拟验收工具
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install --with-deps chromium
+      - name: 480条虚构商品浏览器验收
+        env:
+          STOCKTAKE_CJK_FONT: /usr/share/fonts/truetype/wqy/wqy-zenhei.ttc
+          STOCKTAKE_DATA_DIR: tests/runtime/fifth_ci_data
+          STOCKTAKE_FIFTH_DATA_DIR: tests/runtime/fifth_ci_data
+          STOCKTAKE_TEST_URL: http://127.0.0.1:18545
+          PYTHONPATH: .
+        run: |
+          python tests/prepare_fifth_demo.py
+          python -m streamlit run app.py --server.address 127.0.0.1 --server.port 18545 --server.headless true --browser.gatherUsageStats false > /tmp/stocktake-fifth.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          python -c "import time,urllib.request;time.sleep(3);urllib.request.urlopen('http://127.0.0.1:18545/_stcore/health',timeout=30)"
+          node tests/browser_fifth.mjs
+          python tests/verify_fifth_artifacts.py verify

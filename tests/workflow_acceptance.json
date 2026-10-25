@@ -1,31 +1,28 @@
 {
   "pass": true,
   "simulated_only": true,
-  "pytest_passed": 98,
+  "pytest_passed": 119,
   "private_business_files_included": false,
   "results": {
-    "browser_fourth_results": {
+    "browser_fifth_results": {
       "pass": true,
       "simulated_only": true,
+      "rows": 480,
       "cases": [
         {
-          "name": "一个多文件控件同时上传两份并反向选择，直接进入450条；重复上传恢复实数和原批次",
+          "name": "首次默认不含卓不凡；旧排序/筛选一次性迁移，草稿保留且清除筛选不删除输入",
           "pass": true
         },
         {
-          "name": "三种窗口第1/200/400条七项统计常驻可读、不遮表头；深处填0实时更新且不失焦、不回顶",
+          "name": "商品范围、差异状态/区间、金额、品类、备注、系统/初盘、串码、资格、供应商、编码/尾号及组合筛选准确，整店统计不受影响",
           "pass": true
         },
         {
-          "name": "02专项审计60条/25待确认/900线索对，人工说明及凭证保存，独立Excel实际下载",
+          "name": "逐行金额显示、归零撤销/恢复重算、全部卓不凡含已复盘归零、0与空白及深处连续输入通过",
           "pass": true
         },
         {
-          "name": "03默认390/包含450/仅卓不凡60/不含待确认365，实际预览下载/留档/原单重印/按最新筛选新单",
-          "pass": true
-        },
-        {
-          "name": "03排除仅用于打印，不改变整店盈亏/2‰；季度汇报仍生成并复制最新值",
+          "name": "03只排除卓不凡且保留非卓不凡可换货商品；原单重印、全量批量录入和02全店480行独立真XLS通过",
           "pass": true
         }
       ],
@@ -36,30 +33,59 @@
           "positions": [
             {
               "row": 1,
-              "top": 268.765625,
-              "bottom": 312.765625,
+              "rail_top": 194.765625,
+              "rail_bottom": 238.765625,
+              "header_top": 423.9375,
               "metrics": 7,
-              "allReadable": true,
-              "header_top": 375.765625,
-              "tableOverflow": false
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 8,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
             },
             {
               "row": 200,
-              "top": 60,
-              "bottom": 104,
-              "metrics": 7,
-              "allReadable": true,
+              "rail_top": 60,
+              "rail_bottom": 104,
               "header_top": 104,
-              "tableOverflow": false
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 15,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
             },
             {
               "row": 400,
-              "top": 60,
-              "bottom": 104,
-              "metrics": 7,
-              "allReadable": true,
+              "rail_top": 60,
+              "rail_bottom": 104,
               "header_top": 104,
-              "tableOverflow": false
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 14,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
+            },
+            {
+              "row": 480,
+              "rail_top": 60,
+              "rail_bottom": 104,
+              "header_top": 104,
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 14,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
             }
           ]
         },
@@ -69,30 +95,59 @@
           "positions": [
             {
               "row": 1,
-              "top": 268.765625,
-              "bottom": 312.765625,
+              "rail_top": 194.765625,
+              "rail_bottom": 238.765625,
+              "header_top": 423.9375,
               "metrics": 7,
-              "allReadable": true,
-              "header_top": 375.765625,
-              "tableOverflow": false
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 16,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
             },
             {
               "row": 200,
-              "top": 60,
-              "bottom": 104,
-              "metrics": 7,
-              "allReadable": true,
+              "rail_top": 60,
+              "rail_bottom": 104,
               "header_top": 104,
-              "tableOverflow": false
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 23,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
             },
             {
               "row": 400,
-              "top": 60,
-              "bottom": 104,
-              "metrics": 7,
-              "allReadable": true,
+              "rail_top": 60,
+              "rail_bottom": 104,
               "header_top": 104,
-              "tableOverflow": false
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 22,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
+            },
+            {
+              "row": 480,
+              "rail_top": 60,
+              "rail_bottom": 104,
+              "header_top": 104,
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 22,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
             }
           ]
         },
@@ -102,66 +157,84 @@
           "positions": [
             {
               "row": 1,
-              "top": 268.765625,
-              "bottom": 312.765625,
+              "rail_top": 194.765625,
+              "rail_bottom": 238.765625,
+              "header_top": 423.9375,
               "metrics": 7,
-              "allReadable": true,
-              "header_top": 375.765625,
-              "tableOverflow": false
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 25,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
             },
             {
               "row": 200,
-              "top": 60,
-              "bottom": 104,
-              "metrics": 7,
-              "allReadable": true,
+              "rail_top": 60,
+              "rail_bottom": 104,
               "header_top": 104,
-              "tableOverflow": false
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 33,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
             },
             {
               "row": 400,
-              "top": 60,
-              "bottom": 104,
-              "metrics": 7,
-              "allReadable": true,
+              "rail_top": 60,
+              "rail_bottom": 104,
               "header_top": 104,
-              "tableOverflow": false
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 32,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
+            },
+            {
+              "row": 480,
+              "rail_top": 60,
+              "rail_bottom": 104,
+              "header_top": 104,
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 32,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
             }
           ]
         }
       ],
       "page_errors": []
     },
-    "audit_verification": {
+    "artifact_verification": {
       "pass": true,
       "simulated_only": true,
-      "rows": 60,
-      "pending": 25,
-      "candidate_pairs": 900,
-      "headers": [
-        "序号",
-        "品类",
-        "商品名称",
-        "商品条码",
-        "商品编码",
-        "供应商",
-        "系统数",
-        "初盘数",
-        "复盘实数",
-        "当前总数",
-        "最新差异",
-        "差异成本",
-        "疑似A换B对应商品",
-        "人工备注",
-        "核查结论",
-        "凭证编号"
-      ],
-      "column_count": 16,
-      "text_codes_and_barcodes": true,
-      "all_cells_match_saved_records": true,
-      "amounts_match": true,
-      "manual_proof_preserved": true,
-      "company_file_separate": true
+      "rows": 480,
+      "registry_records": 28,
+      "registry_history_events": 30,
+      "amounts_equal_core_rows": 480,
+      "audit_rows": 80,
+      "audit_columns": 16,
+      "zbf_rows": 60,
+      "manual_eligible_rows": 20,
+      "full_candidate_pairs": 950,
+      "ui_max_candidates_per_product": 3,
+      "company_true_xls_rows": 480,
+      "company_columns": 3,
+      "company_all_zbf_and_manual_retained": true,
+      "historical_pdf_byte_identical": true,
+      "print_manual_records_retained": true,
+      "old_and_new_proof_sheets_present": true
     },
     "pdf_verification": {
       "pass": true,
@@ -195,51 +268,22 @@
         17,
         6
       ],
-      "blank_handwriting_boxes": 414,
+      "handwriting_boxes": 414,
       "minimum_box_height_points": 22,
       "embedded_chinese_font": true,
-      "barcodes_complete_and_unique": true,
-      "no_pairing_text_or_groups": true,
-      "category_middle_sequence_sort": true,
-      "historical_reprint_byte_identical": true,
-      "new_data_new_id": true
-    },
-    "company_browser": {
-      "pass": true,
-      "simulated_only": true,
-      "cases": [
-        {
-          "name": "450条含卓不凡仍全部进入公司三列真XLS，0有效，填写后退出默认单",
-          "pass": true
-        }
-      ]
-    },
-    "company_verification": {
-      "pass": true,
-      "simulated_only": true,
-      "true_xls": true,
-      "sheet": "Sheet1",
-      "rows": 450,
-      "columns": 3,
-      "typed_text_text_number": true,
-      "all_60_zbf_records_retained": true,
-      "all_rows_equal_latest_totals": true,
-      "original_order_and_leading_zero_and_zero_preserved": true
+      "no_pairing_analysis": true
     },
     "restart_verification": {
       "pass": true,
       "simulated_only": true,
-      "real_process_restart": true,
-      "all_8_tables_unchanged": true
+      "all_ten_tables_unchanged_after_real_restart": true
     },
     "reopen_ui": {
       "pass": true,
       "simulated_only": true,
-      "actual_process_restart_ui": true,
-      "recounts_notes_and_catalog_restored": true,
-      "proof_restored": true,
-      "historical_pdf_rendered": true,
-      "no_database_writes": true
+      "rows": 480,
+      "proof_persisted": true,
+      "historical_pdf_rendered": true
     }
   }
 }

@@ -1,6 +1,6 @@
 """一次完整升级的本机客户端：01直达、可见候选、证据和原有完整功能。"""
 from pathlib import Path
-import copy,os,io,csv,json,hashlib
+import copy,os,io,csv,json,hashlib,html
 from decimal import Decimal as D
 import pandas as pd
 import streamlit as st
@@ -8,7 +8,7 @@ from core import (VERSION,import_pair,patch_items,decimal_value,num,summary,curr
     newest_diff,current_amount,changes,change_rows,validate_all,export_blockers,import_v13,
     VENDOR_HEADERS,json_bytes,load_excel)
 from storage import Store,now
-from intelligence import CandidateEngine,row_models,FILTERS,DEFAULT_PARAMETERS
+from intelligence import CandidateEngine,engine_for,row_models,FILTERS,DEFAULT_PARAMETERS
 from imports_exports import (identify_batch,supplier_import,generic_rows,cross_candidates,
     transactions_for,import_master,export_workbook)
 from workbench_component import workbench
@@ -104,6 +104,9 @@ def component_action(batch):
             updated=patch_items(items,bulk_patches(event.get('text',''),items))
             db.save(batch,updated,state,rev,actor(),'01批量粘贴',request)
         elif kind=='undo':db.undo_last(batch,rev,actor())
+        elif kind=='scope':
+            if event.get('scope') not in ('exclude','all','zbf','eligible'):raise ValueError('无效商品范围')
+            st.session_state['exchange_scope_'+batch]=event['scope']
         elif kind=='view':
             prior=st.session_state.get('enrich_'+batch,[])
             st.session_state['enrich_'+batch]=list(dict.fromkeys(prior+[k for k in event.get('ids',[])[:201] if k in mapping]))[-4000:]
@@ -128,7 +131,7 @@ def component_action(batch):
     finally:db.close()
 
 def render_workbench(db,batch,items,state,rev):
-    engine=CandidateEngine(items,state['vendors'],state['meta'].get('parameters'),state['meta'].get('main_suppliers'))
+    engine=engine_for(items,state)
     cross=cross_candidates(items,db.evidence(batch))
     enrich=set(st.session_state.get('enrich_'+batch,[]))
     if not enrich:
@@ -164,7 +167,7 @@ def render_workbench(db,batch,items,state,rev):
             p=engine.pair(row['id'],peer);other=engine.items[peer]
             row['partner_peer']={'id':peer,'name':other['商品名称'],'barcode':other['商品条码'],'diff':float(engine.diff[peer]),'kind':p['kind'],'mix':p['mix']}
         row['peers']=[{k:p[k] for k in ('id','name','barcode','diff','kind','mix')} for p in row['peers'][:1]]
-    payload={'batch':batch,'revision':rev,'rows':rows,'pair_order':order,'filters':FILTERS,'enriched':list(enrich),
+    payload={'batch':batch,'native_summary':True,'active_scope':st.session_state.get('exchange_scope_'+batch,'exclude'),'revision':rev,'rows':rows,'pair_order':order,'filters':FILTERS,'enriched':list(enrich),
         'saved_at':last[0] if last else '', 'imported_at':state['meta']['first_import_at'],
         'ack':st.session_state.get('ack_'+batch),'error':st.session_state.get('grid_error_'+batch),
         'detail':detail,'finance':{'sales_amount':state['meta'].get('sales_amount'),'sales_cost':state['meta'].get('sales_cost')},
@@ -175,7 +178,25 @@ def render_workbench(db,batch,items,state,rev):
            'done':stats['已复盘'],'pending':sum(x.get('复盘实数') is None and newest_diff(x) not in (None,0) for x in items),
            'loss':num(stats['盘亏']),'gain':num(stats['盘盈']),'net':num(stats['净差异']),
            'rate':num(stats['报损率']),'zero_count':sum(x.get('复盘实数') is not None and newest_diff(x)==0 for x in items)}}
+    render_total_rail(payload['panel'])
+    from exchange_registry import registry_panel
+    registry_panel(db,batch,items,state)
+    if st.session_state.get('exchange_scope_'+batch)=='eligible':
+        from vendor_audit import audit_panel
+        audit_panel(db,batch,items,state,rev)
     workbench(payload,lambda:component_action(batch),'workbench_'+batch)
+
+def render_total_rail(p):
+    # 外层整页容器足够长：打开专项审计时也常驻，不能只附着在商品组件内部。
+    metrics=[('整店盘盈（元）',p['gain'],'green'),('整店盘亏（元）',p['loss'],'red'),('净差异（元）',p['net'],''),
+        ('净差异率',str(p['rate'])+'‰' if p['rate'] is not None else '待计算',''),('2‰允许损耗（元）',p['allowance'],''),
+        ('超标金额（元）' if p['over_limit'] else '剩余额度（元）',f"{abs(D(str(p['remaining']))):,.2f}" if p['remaining'] is not None else None,'red' if p['over_limit'] else 'green'),
+        ('已填 / 剩余',str(p['done'])+' / '+str(p['remaining_rows']),'')]
+    style='''<style>.stElementContainer:has(#stocktake-global-summary){position:sticky;top:60px;z-index:20}
+    #stocktake-global-summary{height:44px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px;padding:4px 9px;background:#f3faf9;border:1px solid #c9dfdb;border-radius:4px;box-shadow:0 2px 4px #1734470d;font-family:"Microsoft YaHei",system-ui,sans-serif;color:#173447;box-sizing:border-box}
+    #stocktake-global-summary .metric{padding-right:8px;border-right:1px solid #dce6e6;min-width:0;line-height:19px}#stocktake-global-summary .metric:last-child{border:0}
+    #stocktake-global-summary small{display:block;font-size:10px;line-height:12px;white-space:nowrap;color:#5e7783}#stocktake-global-summary strong{font-size:16px;line-height:19px;white-space:nowrap;font-variant-numeric:tabular-nums}#stocktake-global-summary .red{color:#bb3434}#stocktake-global-summary .green{color:#007864}</style>'''
+    st.html(style+'<div id="stocktake-global-summary" aria-label="整店统计，包含全批次商品">'+''.join('<div class="metric"><small>'+html.escape(label)+'</small><strong class="'+color+'">'+html.escape(str(value) if value is not None else '待计算')+'</strong></div>' for label,value,color in metrics)+'</div>')
 
 def fast_blockers(items,state,engine):
     # 与正式导出同一门槛；大批次只展开尚未有凭证的商品集合。
@@ -217,7 +238,7 @@ def save_state(db,batch,items,state,rev,source):
 
 def changes_exports(db,batch,items,state,rev):
     st.subheader('变化清单与V13七表工作簿')
-    engine=CandidateEngine(items,state['vendors'],state['meta'].get('parameters'),state['meta'].get('main_suppliers'))
+    engine=engine_for(items,state)
     rows=change_rows(items,state['vendors'])
     for row,x in zip(rows,items):
         initial=x['初盘数']-x['系统数']+x['原始调整'] if x['初盘数'] is not None and x['系统数'] is not None else None
@@ -247,7 +268,7 @@ def changes_exports(db,batch,items,state,rev):
 
 def supplier_page(db,batch,items,state,rev):
     st.subheader('供货商数据库 · 批量导入 / 冲突选择')
-    st.caption('完整条码匹配；导入的供应商均可单独筛选。供应商相同只形成A换B线索，不抵销数量。')
+    st.caption('完整条码匹配；供应商相同不等于具有换货资格。A换B仅限经确认的卓不凡范围或已启用的同组人工档案，不抵销数量。')
     file=st.file_uploader('批量导入任意供应商Excel',type=['xls','xlsx'],key='vendors_upload')
     mapping={}
     if file:
@@ -333,7 +354,7 @@ def supplier_page(db,batch,items,state,rev):
 def advanced(db,batch,items,state,rev):
     st.subheader('高级异常明细 · 配对证据 / 跨店 / 交易 / 商品档案')
     mode=st.segmented_control('明细类型',['成对候选','跨店与交易证据','商品档案','参数与批次设置','复盘变化轨迹'],default='成对候选',key='advanced_mode')
-    engine=CandidateEngine(items,state['vendors'],state['meta'].get('parameters'),state['meta'].get('main_suppliers'))
+    engine=engine_for(items,state)
     if mode=='成对候选':
         selection=st.selectbox('查看商品及其所有候选',[x['记录ID'] for x in items],format_func=lambda k:f"{engine.items[k]['序号']} · {engine.items[k]['商品名称']} / {engine.items[k]['商品条码']}")
         total=engine.count(selection,'all')
@@ -430,7 +451,7 @@ def company_export(db,batch,items,state,rev):
     from core import create_company_xls
     st.subheader('公司盘点结果导出')
     meta=state['meta'];errors=validate_all(items)
-    engine=CandidateEngine(items,state['vendors'],meta.get('parameters'),meta.get('main_suppliers'))
+    engine=engine_for(items,state)
     blockers=fast_blockers(items,state,engine)
     pending=sum(x.get('复盘实数') is None for x in items)
     st.caption(f"当前批次：{meta['store']} · {meta['period']} · {batch}")
@@ -454,13 +475,11 @@ def company_export(db,batch,items,state,rev):
     if a.button('预览最终三列',key='preview_company_'+batch):st.session_state['company_preview_'+batch]=True
     blob=None
     if not blockers:
-        try:blob=create_company_xls(items,meta,state['vendors'])
+        try:blob=create_company_xls(items,meta,state['vendors'],engine=engine)
         except ValueError as exc:st.error(str(exc))
     b.download_button('下载公司盘点表.xls',blob or b'',file_name='公司盘点表.xls',mime='application/vnd.ms-excel',disabled=blob is None)
     if st.session_state.get('company_preview_'+batch):
         table([{'商品编码':x['商品编码'],'商品条码':x['商品条码'],'数量':num(current_total(x))} for x in items],alt='最新保存数据的最终三列预览')
-    from vendor_audit import audit_panel
-    audit_panel(db,batch,items,state,rev)
 
 def tools_page(db,batch,items,state,rev):
     mode=st.selectbox('更多工具',['供货商数据库','商品档案与异常分析','变化清单/七表母版','来源与本地备份'],key='tools_mode')

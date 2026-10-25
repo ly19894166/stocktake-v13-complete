@@ -25,10 +25,12 @@ def supplier_for(vendors,main=None):
     return result
 
 class CandidateEngine:
-    def __init__(self,items,vendors,parameters=None,main=None):
+    def __init__(self,items,vendors,parameters=None,main=None,*,meta=None,exchange=()):
         self.items={x['记录ID']:x for x in items}
         self.parameters={**DEFAULT_PARAMETERS,**(parameters or {})}
         self.suppliers=supplier_for(vendors,main)
+        from exchange_rules import eligibility
+        self.eligibility=eligibility(items,vendors,meta or {'main_suppliers':main or {}},exchange)
         self.diff={k:newest_diff(x) for k,x in self.items.items()}
         self.cost={k:cents(x.get('成本价')) for k,x in self.items.items()}
         self.index=defaultdict(set);self.vendor_index=defaultdict(set);self.barcodes=defaultdict(set)
@@ -42,9 +44,8 @@ class CandidateEngine:
                 for field in ('部类','大类','中类'):
                     value=x.get(field) or (x.get('业务品类') if field=='中类' else '')
                     if value:self.index[field,str(value),c,sign].add(key)
-            vendor=self.suppliers.get(x['商品条码'],'未在目录')
-            if vendor not in ('','未在目录','多供货商·待核实'):
-                self.vendor_index[vendor,sign].add(key)
+            group=self.eligibility[key]['group']
+            if group:self.vendor_index[group,sign].add(key)
         self._unique_barcodes=len(self.barcodes)==len(items)
         self._peer_cache={}
 
@@ -60,7 +61,7 @@ class CandidateEngine:
             return self._cache[sig]
         sign=-1 if d>0 else 1
         if kind=='swap':
-            result=self.vendor_index.get((self.suppliers.get(x['商品条码']),sign),EMPTY)
+            result=self.vendor_index.get((self.eligibility[key]['group'],sign),EMPTY)
         else:
             if c is None:return EMPTY
             classes=tuple(x.get(f) or (x.get('业务品类') if f=='中类' else '') for f in ('部类','大类','中类'))
@@ -112,23 +113,24 @@ class CandidateEngine:
         balanced=self.diff[a]+self.diff[b]==0
         overlap=min(abs(self.diff[a]),abs(self.diff[b]))
         amount=overlap*min(self.cost[a] or 0,self.cost[b] or 0)
-        strength=(1+level if mix else 0)+int(same_retail)+int(balanced)
+        same_cost=self.cost[a] is not None and self.cost[a]==self.cost[b]
+        strength=(1+level if mix else level)+int(same_retail)+int(balanced)+int(same_cost)+int(same_spec)
         confidence='较强线索' if strength>=5 else '一般线索' if strength>=3 else '弱线索'
         evidence=[category if mix else '',('成本按分相同' if self.cost[a]==self.cost[b] else '已启用成本±0.01元容差') if mix else '',
-                  '同供货商' if swap else '', '售价相同' if same_retail else
+                  '双方已取得同组换货资格' if swap else '', '售价相同' if same_retail else
                   '缺售价·待补证据' if retail_a is None or retail_b is None else '售价不同·需核规格',
                   '反向数量相等' if balanced else '反向差异可解释部分数量',
                   '品牌相同' if same_brand else '', '规格相同' if same_spec else '']
-        return {'a':a,'b':b,'kind':'疑似串码串销＋同供应商A换B' if mix and swap else '疑似串码串销' if mix else '同供应商A换B候选',
+        return {'a':a,'b':b,'kind':'疑似串码串销＋可A换B线索' if mix and swap else '疑似串码串销' if mix else '可A换B候选',
           'mix':mix,'swap':swap,'level':level,'confidence':confidence,'strength':strength,
           'overlap':float(overlap),'amount_overlap':float(rounded(amount,2)),
           'evidence':'；'.join(v for v in evidence if v),'category_match':category,
-          'sort':(-strength,-level,-int(same_retail),-int(balanced),-int(same_brand),-int(same_spec),-int(swap),-amount,y['商品条码'])}
+          'sort':(-strength,-level,-int(same_cost),-int(same_spec),-int(balanced),-int(same_retail),-int(same_brand),-int(swap),-amount,y['商品条码'])}
 
     def peers(self,key,limit=3,offset=0,kind='all'):
         x=self.items[key]
         profile=(kind,tuple(x.get(f) for f in ('部类','大类','中类')),self.cost[key],self.diff[key],cents(x.get('零售价')),
-                 self.suppliers.get(x['商品条码']),str(x.get('品牌') or ''),str(x.get('销售规格') or ''))
+                 self.eligibility[key]['group'],str(x.get('品牌') or ''),str(x.get('销售规格') or ''))
         cached=self._peer_cache.get(profile)
         if self._unique_barcodes and cached and cached[0]>=offset+limit:
             best=[self.pair(key,k) for k in cached[1][:offset+limit]]
@@ -171,10 +173,10 @@ def priority(x,candidate_count=0,parameters=None):
     if unit_hints(x,p):parts['单位/异常量']=5
     return sum(parts.values()),' + '.join(f'{k}{v}' for k,v in parts.items())+'（建议排序，非审核标准）'
 
-FILTERS=('未填复盘','盘亏','盘盈','仍有差异','疑似串码','同供应商A换B','可能跨店调拨','高金额','负库存','缺成本','零成本','缺编码','重复条码','异常换算','缺文字原因','数据错误')
+FILTERS=('未填复盘','盘亏','盘盈','仍有差异','疑似串码','允许A换B','可能跨店调拨','高金额','负库存','缺成本','零成本','缺编码','重复条码','异常换算','缺文字原因','数据错误')
 
 def row_models(items,state,engine=None,cross=None,enrich=()):
-    engine=engine or CandidateEngine(items,state['vendors'],state['meta'].get('parameters'),state['meta'].get('main_suppliers'))
+    engine=engine or engine_for(items,state)
     params=engine.parameters;cross=cross or {};duplicate=Counter(x['商品条码'] for x in items)
     packing=defaultdict(set)
     for v in state['vendors']:
@@ -195,7 +197,7 @@ def row_models(items,state,engine=None,cross=None,enrich=()):
         if diff is not None and diff>0:flags.append('盘盈')
         if diff not in (None,0):flags.append('仍有差异')
         if mix:flags.append('疑似串码')
-        if swap:flags.append('同供应商A换B')
+        if engine.eligibility[key]['eligible']:flags.append('允许A换B')
         if cross.get(key):flags.append('可能跨店调拨')
         if abs(amount or 0)>=D(str(params['high_amount'])):flags.append('高金额')
         if decimal_value(x.get('系统数'),D(0))<0:flags.append('负库存')
@@ -230,10 +232,15 @@ def row_models(items,state,engine=None,cross=None,enrich=()):
            'change':None if change['复盘变化量'] is None else float(change['复盘变化量']),
            'change_label':change_description(x),
            'cost':None if cost is None else float(cost),'retail':None if decimal_value(x.get('零售价')) is None else float(decimal_value(x['零售价'])),
-           'supplier':engine.suppliers.get(x['商品条码'],'未在目录'),'note':x.get('备注',''),
+           'eligible':engine.eligibility[key]['eligible'],'exchange_group':engine.eligibility[key]['group'],'eligibility_source':engine.eligibility[key]['source'],'supplier':engine.suppliers.get(x['商品条码'],'未在目录'),'note':x.get('备注',''),
            'spec':x.get('销售规格',''),'unit':x.get('件装单位',''),
            'packing':str(info.get('包装系数') or '未提供，不自动推定'),
            'cost_basis':f"{x.get('原文件','')} / {x.get('工作表','')} / 第{x.get('原始行号','')}行；原件成本{x.get('原始字段',{}).get('成本价','未提供')}；当前成本{cost if cost is not None else '缺失'}",
            'mix_count':mix,'swap_count':swap,'candidate_count':engine.count(key,'all'),'peers':peers,'flags':flags,'unit_hints':hints,'risk_hints':risks,
            'score':score,'score_reason':why,'cross':cross.get(key,[])})
     return rows
+
+
+def engine_for(items,state):
+    from supplier_policy import effective_vendors
+    return CandidateEngine(items,effective_vendors(state),state['meta'].get('parameters'),state['meta'].get('main_suppliers'),meta=state['meta'],exchange=state.get('exchange_catalog',[]))

@@ -34,3 +34,13 @@ th.num,td.num{text-align:right}.difference{text-align:right!important}.zero{colo
 .metrics.summary-rail{position:sticky;top:60px;z-index:15;height:44px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px;margin:0 0 5px;padding:4px 9px;background:#f3faf9;border:1px solid #c9dfdb;border-radius:4px;box-shadow:0 2px 4px #1734470d}
 .summary-rail .metric{line-height:19px}.summary-rail .metric small{line-height:12px;font-size:10px;white-space:nowrap}.summary-rail .metric strong{font-size:16px;line-height:19px;white-space:nowrap;overflow-wrap:normal}.summary-rail .metric:last-child strong{font-size:15px}
 thead th{top:104px}tbody tr{scroll-margin-top:145px}.edit-count,.edit-note{scroll-margin-top:145px}
+
+/* 第五次：表头筛选与14列，金额始终可见。 */
+.native-summary .summary-rail{display:none!important}
+.header-filter{border:0;background:transparent;border-radius:2px;font-size:10px;font-weight:600;line-height:20px;padding:0;max-width:100%;white-space:nowrap;color:#244b5b}.header-filter.active{color:#006b5e;background:#ccebe3}.header-filter:hover{text-decoration:underline}
+.primary-tools .scope{max-width:180px;flex-shrink:0}.primary-tools .search{min-width:150px}.primary-tools .category{max-width:105px}.primary-tools .view{max-width:145px}.primary-tools .regroup{display:none}
+.col-seq{width:2.7%}.col-category{width:4.8%}.col-product{width:13%}.col-barcode{width:8.5%}col.col-code{width:6%}.col-system,.col-initial{width:4.5%}.col-recount,.col-total{width:5.5%}.col-difference{width:9%}.col-amount{width:7%}.col-note{width:8%}col.col-supplier{width:6%}.col-hints{width:15.5%}
+.amount{font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}.missing-amount{font-size:10px;color:#9a6416;white-space:normal;line-height:14px}
+.filter-dialog{width:min(440px,94vw);padding:18px}.filter-dialog label{display:flex;flex-direction:column;font-size:12px;gap:5px;margin:8px 0}.filter-dialog input,.filter-dialog select{width:100%;height:34px}.range-fields{display:flex;gap:12px}.range-fields label{flex:1}.filter-dialog .muted{font-size:11px;line-height:1.6}.filter-dialog .panel-title{font-size:15px}.filter-dialog .toolbar{margin-bottom:0}.filter-error{font-size:12px;min-height:0}
+.guide{align-items:center;line-height:18px;padding:2px 0}.result-count{flex:1;color:#49636e;font-size:10px}
+@media(max-width:1500px){.col-code,.col-supplier{display:none}.col-seq{width:2.7%}.col-category{width:5%}.col-product{width:15%}.col-barcode{width:11.5%}.col-system,.col-initial{width:6%}.col-recount,.col-total{width:7%}.col-difference{width:10%}.col-amount{width:8%}.col-note{width:9%}.col-hints{width:12.8%}.primary-tools .category{display:none}.primary-tools .scope{max-width:170px}.primary-tools .view{max-width:140px}.primary-tools .search{min-width:160px}}

@@ -5,34 +5,35 @@ export default function(component) {
   if(!data||!Array.isArray(data.rows))return;
   const root=parentElement.querySelector('#stocktake-workbench');
   if(!root)return;
+  root.classList.toggle('native-summary',!!data.native_summary);
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fmt=(v,n=4)=>v===null||v===undefined?'—':Number(v).toLocaleString('zh-CN',{minimumFractionDigits:n===2?2:0,maximumFractionDigits:n});
   const cls=v=>v<0?'red':v>0?'green':'zero';
   // 只缩短已有引擎的变化文字；数量、调整和金额继续使用后端V13结果。
   const shortChange=r=>r.recount===null?'':r.diff===0?'✓归零':r.change===0?'':(r.change>0?'↑':'↓')+r.change_label.split(' · ')[0].replace(/件/g,'').replace('盘亏增加','亏增').replace('盘盈减少','盈减').replace('盘盈增加','盈增').replace('盘亏减少','亏减');
   let S=root.__inventory;
-  if(S&&S.layoutVersion!==5){S.remember?.();S.observer?.disconnect();root.__inventory=null;S=null}
+  if(S&&S.layoutVersion!==6){S.remember?.();S.observer?.disconnect();root.__inventory=null;S=null}
   if(!S){
     let local={};try{local=JSON.parse(localStorage.getItem('stocktake:'+data.batch)||'{}')}catch{}
-    const migrated=local.flowVersion!==4;
-    S=root.__inventory={query:migrated?'':local.query||'',filters:migrated?[]:local.filters||[],category:migrated?'':local.category||'',supplier:migrated?'':local.supplier||'',sort:migrated?'sequence':local.sort||'sequence',order:[],orderKey:'',loaded:200,editGeneration:0,copyIntent:null,drafts:local.drafts||{},queue:[],inflight:null,rows:new Map(),dom:new Map(),focus:null,seenAck:null,viewKey:'',rowSignatures:new Map(),restore:!!Object.keys(local.drafts||{}).length,metaDrafts:local.metaDrafts||{},timers:{},reportOpen:false,detailOpen:false};
-    S.layoutVersion=5;
+    const migrated=local.flowVersion!==5;
+    S=root.__inventory={query:migrated?'':local.query||'',filters:migrated?[]:local.filters||[],category:migrated?'':local.category||'',supplier:migrated?'':local.supplier||'',sort:migrated?'sequence':local.sort||'sequence',scope:migrated?'exclude':local.scope||'exclude',columns:migrated?{}:local.columns||{},order:[],orderKey:'',loaded:200,editGeneration:0,copyIntent:null,drafts:local.drafts||{},queue:[],inflight:null,rows:new Map(),dom:new Map(),focus:null,seenAck:null,viewKey:'',rowSignatures:new Map(),restore:!!Object.keys(local.drafts||{}).length,metaDrafts:local.metaDrafts||{},timers:{},reportOpen:false,detailOpen:false};
+    S.layoutVersion=6;
     root.innerHTML=`<div class="operating-panel">
       <div class="operating-inputs"><label>实际销售金额（元）<input data-meta="sales_amount" inputmode="decimal" aria-label="实际销售金额（元）" placeholder="待填写"></label><label>同期含税销售成本（元）<input data-meta="sales_cost" inputmode="decimal" aria-label="同期含税销售成本（元）" placeholder="待填写"></label><div class="calculation-status"></div><button class="report-open primary">生成盘点汇报</button></div>
-      <div class="audit muted">当前测算，仅供复盘；正式导出仍须在02完整检查。</div></div><div class="metrics summary-rail" data-testid="metrics" aria-label="当前测算盘点汇总"></div>
-      <div class="toolbar primary-tools"><input class="search" aria-label="搜索商品名、编码、完整条码或尾号" placeholder="商品名称 / 编码 / 完整条码 / 尾号4–8位"><select class="category" aria-label="品类筛选"></select><select class="view" aria-label="找货查看方式"><option value="sequence">原始序号（默认）</option><option value="amount">差异金额优先</option><option value="pair">疑似串码联排</option><option value="category">按品类查找</option></select><button class="regroup" title="按最新数据更新排序">刷新排序</button><button class="undo">撤销上次输入</button><button class="bulk-toggle">批量粘贴</button><button class="more-toggle" aria-expanded="false">更多筛选</button></div>
-      <div class="more-filters hidden"><div class="toolbar"><select class="supplier" aria-label="供应商筛选"></select><select class="sort" aria-label="建议排序"><option value="sequence">原始序号（默认）</option><option value="pair">疑似串码联排</option><option value="amount">差异金额优先</option><option value="quantity">数量优先</option><option value="category">按品类查找</option><option value="score">综合建议分</option></select><button class="refresh">刷新数据</button><button class="clear">清除筛选</button></div><div class="chips"></div><span class="muted">组合筛选同时满足；只改变显示顺序，不改变记录、实数和导出顺序。</span></div>
+      <div class="audit muted">当前测算，仅供复盘；正式导出仍须在02完整检查。</div></div><div class="metrics summary-rail" data-testid="metrics" aria-label="整店统计，包含全批次商品"></div>
+      <div class="toolbar primary-tools"><select class="scope" aria-label="商品范围"><option value="exclude">不含卓不凡（默认）</option><option value="all">全部商品</option><option value="zbf">仅卓不凡</option><option value="eligible">全部可A换B商品</option></select><input class="search" aria-label="搜索商品名、编码、完整条码或尾号" placeholder="商品名称 / 编码 / 完整条码 / 尾号4–8位"><select class="category" aria-label="品类筛选"></select><select class="view" aria-label="找货查看方式"><option value="sequence">原始序号（默认）</option><option value="amount">差异金额优先</option><option value="pair">疑似串码联排</option><option value="category">按品类查找</option></select><button class="regroup" title="按最新数据更新排序">刷新排序</button><button class="undo">撤销上次输入</button><button class="bulk-toggle">批量粘贴</button><button class="clear">清除筛选</button><button class="more-toggle" aria-expanded="false">更多筛选</button></div>
+      <div class="more-filters hidden"><div class="toolbar"><select class="supplier" aria-label="供应商筛选"></select><select class="sort" aria-label="建议排序"><option value="sequence">原始序号（默认）</option><option value="pair">疑似串码联排</option><option value="amount">差异金额优先</option><option value="quantity">数量优先</option><option value="category">按品类查找</option><option value="score">综合建议分</option></select><button class="refresh">刷新数据</button></div><div class="chips"></div><span class="muted">组合筛选同时满足；只改变显示顺序，不改变记录、实数和导出顺序。</span></div>
       <select class="locate hidden" aria-label="条码尾号匹配结果"></select><div class="message"></div>
       <div class="bulk hidden"><strong>批量粘贴复盘数</strong><p class="muted">每行：完整条码 Tab 复盘实数 Tab 人工备注 Tab 单位说明（后两项可省略）。全部校验通过后一次保存。</p><textarea aria-label="批量粘贴复盘数据"></textarea><button class="primary bulk-submit">校验并保存全部粘贴行</button></div>
       <div class="guide"><span class="result-count"></span><span class="saved" data-testid="save-status"></span></div>
-      <div class="table-wrap"><table aria-label="01现场复盘表"><colgroup>${['seq','category','product','barcode','code','system','initial','recount','total','difference','note','supplier','hints'].map(c=>`<col class="col-${c}">`).join('')}</colgroup><thead><tr><th>序号</th><th>品类</th><th>商品名称</th><th>商品条码</th><th class="col-code">商品编码</th><th class="num">系统数</th><th class="num">初盘数</th><th class="num">复盘实数</th><th class="num" title="母版I列送货物数量：当前有效实物总数，不是采购补货量">当前实物总数</th><th class="num">最新差异</th><th>备注／原因</th><th class="col-supplier">供货商</th><th>核查标签</th></tr></thead><tbody></tbody></table></div>
+      <div class="table-wrap"><table aria-label="01现场复盘表"><colgroup>${['seq','category','product','barcode','code','system','initial','recount','total','difference','amount','note','supplier','hints'].map(c=>`<col class="col-${c}">`).join('')}</colgroup><thead><tr><th><button class="header-filter" data-column="sequence" aria-label="筛选序号">序号 ▾</button></th><th><button class="header-filter" data-column="category" aria-label="筛选品类">品类 ▾</button></th><th><button class="header-filter" data-column="name" aria-label="筛选商品名称">商品名称 ▾</button></th><th><button class="header-filter" data-column="barcode" aria-label="筛选商品条码">商品条码 ▾</button></th><th class="col-code"><button class="header-filter" data-column="code" aria-label="筛选商品编码">商品编码 ▾</button></th><th><button class="header-filter" data-column="system" aria-label="筛选系统数">系统数 ▾</button></th><th><button class="header-filter" data-column="initial" aria-label="筛选初盘数">初盘数 ▾</button></th><th><button class="header-filter" data-column="recount" aria-label="筛选复盘实数">复盘实数 ▾</button></th><th><button class="header-filter" data-column="total" aria-label="筛选当前实物总数">当前实物总数 ▾</button></th><th><button class="header-filter" data-column="diff" aria-label="筛选最新差异">最新差异 ▾</button></th><th><button class="header-filter" data-column="amount" aria-label="筛选差异金额（元）">差异金额（元） ▾</button></th><th><button class="header-filter" data-column="note" aria-label="筛选备注／原因">备注／原因 ▾</button></th><th class="col-supplier"><button class="header-filter" data-column="supplier" aria-label="筛选供货商">供货商 ▾</button></th><th><button class="header-filter" data-column="hints" aria-label="筛选核查标签">核查标签 ▾</button></th></tr></thead><tbody></tbody></table></div>
       <div class="load-sentinel" aria-label="连续浏览加载位置"></div><div class="scroll-status muted"></div>
-      <dialog class="panel" aria-label="商品详情与对应候选"></dialog>
+      <dialog class="filter-dialog" aria-label="列筛选面板"></dialog><dialog class="panel" aria-label="商品详情与对应候选"></dialog>
       <dialog class="note-dialog" aria-label="展开编辑人工备注"><div class="panel-title"><strong>人工备注／原因</strong><button class="note-close">保存并收起</button></div><textarea class="note-editor" aria-label="完整人工备注"></textarea><p class="muted">自动保存。系统线索不会覆盖人工备注。</p></dialog>
       <dialog class="calculation-dialog" aria-label="V13差异计算依据"><div class="panel-title"><strong>V13差异计算依据</strong><button class="calculation-close">关闭</button></div><div class="calculation-body"></div></dialog>
       <dialog class="report-dialog" aria-label="季度盘点汇报"><div class="panel-title"><strong>季度盘点汇报</strong><button class="report-close">关闭</button></div><div class="report-fields"></div><p class="report-warnings muted"></p><label class="report-label">最终文稿（可直接编辑，自动保存）<textarea class="report-text" aria-label="最终盘点汇报文稿"></textarea></label><div class="toolbar"><button class="report-copy primary">一键复制文稿</button><button class="report-reset">按最新数据重新生成</button><button class="report-old hidden">查看上次人工稿</button><span class="copy-status" aria-live="polite"></span></div></dialog>`;
     const q=s=>root.querySelector(s);
-    const remember=()=>{try{localStorage.setItem('stocktake:'+S.data.batch,JSON.stringify({query:S.query,filters:S.filters,category:S.category,supplier:S.supplier,sort:S.sort,flowVersion:4,drafts:S.drafts,metaDrafts:S.metaDrafts}))}catch{}};
+    const remember=()=>{try{localStorage.setItem('stocktake:'+S.data.batch,JSON.stringify({query:S.query,filters:S.filters,category:S.category,supplier:S.supplier,sort:S.sort,scope:S.scope,columns:S.columns,flowVersion:5,drafts:S.drafts,metaDrafts:S.metaDrafts}))}catch{}};
     S.remember=remember;
     S.enqueue=(kind,extra={})=>{const event={kind,...extra,request_id:crypto.randomUUID()};S.queue.push(event);S.pump();return event.request_id};
     S.pump=()=>{if(S.inflight||!S.queue.length)return;let event=S.queue.shift();if(event.kind==='edit'){
@@ -90,12 +91,34 @@ export default function(component) {
       q('.report-old').classList.toggle('hidden',!report.stale_draft);
     };
     q('.more-toggle').onclick=()=>{const hidden=q('.more-filters').classList.toggle('hidden');q('.more-toggle').setAttribute('aria-expanded',String(!hidden))};
+    q('.scope').value=S.scope;q('.scope').onchange=e=>{S.scope=e.target.value;S.focus=null;S.filterChanged=true;remember();S.enqueue('scope',{scope:S.scope});S.render()};
     q('.search').value=S.query;
-    q('.search').oninput=e=>{S.query=e.target.value;S.focus=null;remember();S.render()};
-    q('.category').onchange=e=>{S.category=e.target.value;S.focus=null;remember();S.render()};
-    q('.supplier').onchange=e=>{S.supplier=e.target.value;S.focus=null;remember();S.render()};
-    q('.sort').value=S.sort;q('.sort').onchange=e=>{S.sort=e.target.value;q('.view').value=S.sort;S.focus=null;remember();S.render()};
-    q('.clear').onclick=()=>{S.query='';S.filters=[];S.category='';S.supplier='';S.focus=null;S.focus=null;q('.search').value='';q('.category').value='';q('.supplier').value='';remember();S.render()};
+    q('.search').oninput=e=>{S.query=e.target.value;S.focus=null;S.filterChanged=true;remember();S.render()};
+    q('.category').onchange=e=>{S.category=e.target.value;S.focus=null;S.filterChanged=true;remember();S.render()};
+    q('.supplier').onchange=e=>{S.supplier=e.target.value;S.focus=null;S.filterChanged=true;remember();S.render()};
+    q('.sort').value=S.sort;q('.sort').onchange=e=>{S.sort=e.target.value;q('.view').value=S.sort;S.focus=null;S.filterChanged=true;remember();S.render()};
+    q('.clear').onclick=()=>{S.query='';S.filters=[];S.category='';S.supplier='';S.scope='exclude';S.sort='sequence';S.columns={};S.focus=null;S.filterChanged=true;S.orderKey='';q('.search').value='';q('.category').value='';q('.supplier').value='';q('.view').value='sequence';q('.sort').value='sequence';q('.scope').value='exclude';remember();S.enqueue('scope',{scope:S.scope});S.render()};
+    const columns={sequence:'序号',category:'品类',name:'商品名称',barcode:'商品条码',code:'商品编码',system:'系统数',initial:'初盘数',recount:'复盘实数',total:'当前实物总数',diff:'最新差异',amount:'差异金额（元）',note:'备注／原因',supplier:'供货商',hints:'核查标签'};
+    const select=(label,key,options,value)=>`<label>${esc(label)}<select data-filter-field="${key}" aria-label="${esc(label)}">${options.map(([v,t])=>`<option value="${v}" ${String(v)===String(value)?'selected':''}>${esc(t)}</option>`).join('')}</select></label>`;
+    S.openFilter=column=>{
+      const pane=q('.filter-dialog'),f=S.columns[column]||{};const numeric=['system','initial','recount','total','diff','amount'].includes(column);let body='';
+      if(['name','barcode','code'].includes(column))body=`<label>包含文字或完整数字<input data-filter-field="text" aria-label="列搜索内容" value="${esc(f.text||'')}"></label>`;
+      if(column==='category'||column==='supplier')body=select(columns[column],'value',[['','全部'],...[...new Set([...S.rows.values()].map(r=>r[column]))].sort().map(v=>[v,v])],column==='category'?S.category:S.supplier);
+      if(numeric){
+        const modes=column==='diff'?[['','全部'],['loss','盘亏'],['gain','盘盈'],['zero','差异归零'],['nonzero','仍有差异'],['unreviewed','未复盘'],['reviewed','已复盘']]:column==='amount'?[['','全部'],['loss','盘亏'],['gain','盘盈'],['zero','差异归零'],['missing','缺成本／待核实']]:[['','全部'],['blank','空白'],['filled','已填写'],['zero','等于0']];
+        body=select('筛选状态','mode',modes,f.mode||'')+`<div class="range-fields"><label>最小值（含）<input data-filter-field="min" aria-label="最小值（含）" inputmode="decimal" value="${esc(f.min??'')}"></label><label>最大值（含）<input data-filter-field="max" aria-label="最大值（含）" inputmode="decimal" value="${esc(f.max??'')}"></label></div><p class="muted">按带正负号的实际数值筛选；盘亏为负数。空白不等于0。</p>`;
+        if(['diff','amount'].includes(column))body+=select('排序方式','sort',[['sequence','原始序号'],['quantity','差异数量绝对值'],['amount','差异金额绝对值']],S.sort);
+      }
+      if(column==='note')body=select('人工备注','mode',[['','全部'],['yes','有人工备注'],['no','无人工备注']],f.mode||'');
+      if(column==='hints')body=select('线索与资格','mode',[['','全部'],['mix','疑似串码'],['eligible','允许A换B'],['swap','存在A换B候选'],['pending','供货商待确认']],f.mode||'');
+      if(column==='sequence')body=select('排序方式','sort',[['sequence','原始序号（默认）'],['amount','差异金额绝对值'],['quantity','差异数量绝对值'],['pair','疑似串码联排'],['category','按品类查找']],S.sort);
+      pane.innerHTML=`<div class="panel-title"><strong>${esc(columns[column])}筛选</strong><button class="filter-close">关闭</button></div>${body}<p class="filter-error red"></p><div class="toolbar"><button class="filter-apply primary">应用列筛选</button><button class="filter-reset">清除此列</button></div>`;
+      pane.querySelector('.filter-close').onclick=()=>pane.close();
+      pane.querySelector('.filter-reset').onclick=()=>{delete S.columns[column];if(column==='category')S.category='';if(column==='supplier')S.supplier='';S.focus=null;S.filterChanged=true;S.orderKey='';remember();pane.close();S.render()};
+      pane.querySelector('.filter-apply').onclick=()=>{const next={};for(const el of pane.querySelectorAll('[data-filter-field]')){const k=el.dataset.filterField,v=el.value.trim();if(k==='sort'){S.sort=v;continue}if(v!==''){if(['min','max'].includes(k)){if(!Number.isFinite(Number(v))){pane.querySelector('.filter-error').textContent='请输入有效数字';return}next[k]=Number(v)}else next[k]=v}}if(next.min!==undefined&&next.max!==undefined&&next.min>next.max){pane.querySelector('.filter-error').textContent='最小值不能大于最大值';return}if(column==='category')S.category=next.value||'';else if(column==='supplier')S.supplier=next.value||'';else S.columns[column]=next;S.focus=null;S.filterChanged=true;S.orderKey='';q('.view').value=S.sort;q('.sort').value=S.sort;remember();pane.close();S.render()};
+      pane.showModal();
+    };
+    root.querySelectorAll('.header-filter').forEach(b=>b.onclick=()=>S.openFilter(b.dataset.column));
     q('.undo').onclick=()=>S.enqueue('undo');q('.refresh').onclick=()=>S.enqueue('refresh');
     q('.bulk-toggle').onclick=()=>q('.bulk').classList.toggle('hidden');
     q('.bulk-submit').onclick=()=>S.enqueue('bulk',{text:q('.bulk textarea').value});
@@ -103,58 +126,63 @@ export default function(component) {
     S.openDetail=(a,b)=>{S.detailOpen=true;S.requestedDetail={a,b:b||null};S.enqueue('detail',{a,b});S.render()};
     S.locateTo=(id,from=null)=>{S.focus=id;S.locateFrom=from;S.render();S.dom.get(id)?.scrollIntoView({block:'center',behavior:'smooth'})};
     q('.view').value=S.sort;
-    q('.view').onchange=e=>{S.sort=e.target.value;q('.sort').value=S.sort;S.orderKey='';S.focus=null;remember();S.render()};
+    q('.view').onchange=e=>{S.sort=e.target.value;q('.sort').value=S.sort;S.orderKey='';S.focus=null;S.filterChanged=true;remember();S.render()};
     q('.regroup').onclick=()=>{S.orderKey='';S.render()};
     S.scrollParent=()=>{for(let el=root.getRootNode().host;el;el=el.parentElement)if(/auto|scroll/.test(getComputedStyle(el).overflowY)&&el.scrollHeight>el.clientHeight+10)return el;return document.scrollingElement};
     S.requestVisible=()=>{if(S.inflight||S.queue.some(e=>e.kind==='view'))return;const ids=S.visible.filter(r=>{const el=S.dom.get(r.id);if(!el)return false;const box=el.getBoundingClientRect();return box.bottom>-500&&box.top<innerHeight+800}).map(r=>r.id).filter(id=>!S.data.enriched.includes(id)).slice(0,150);if(ids.length)S.enqueue('view',{ids})};
     S.onScroll=()=>{if(!root.isConnected)return;clearTimeout(S.scrollTimer);S.scrollTimer=setTimeout(S.requestVisible,160)};
     S.observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)&&S.loaded<S.filteredCount){S.loaded+=200;S.render()}},{rootMargin:'900px'});
     S.render=()=>{
-      const d=S.data,stats=d.stats;const tbody=q('tbody'),scroller=S.scrollParent();const active=root.getRootNode().activeElement;const anchor=[...tbody.children].find(el=>el.getBoundingClientRect().bottom>90);const anchorTop=anchor?.getBoundingClientRect().top;const priorScroll=scroller.scrollTop;
+      const pinEditing=!S.filterChanged;S.filterChanged=false;const d=S.data,stats=d.stats;const tbody=q('tbody'),scroller=S.scrollParent();const active=root.getRootNode().activeElement;const anchor=[...tbody.children].find(el=>el.getBoundingClientRect().bottom>90);const anchorTop=anchor?.getBoundingClientRect().top;const priorScroll=scroller.scrollTop;
       q('.regroup').textContent=S.sort==='pair'?'重新联排':'刷新排序';q('.regroup').title='按最新数据更新排列；保存时保留行位置，避免打断输入';
       const p=d.panel;
       for(const input of root.querySelectorAll('[data-meta]')){const value=S.metaDrafts[input.dataset.meta]?.value??d.finance[input.dataset.meta]??'';if(parentElement.activeElement!==input&&input.value!==String(value))input.value=String(value)}
       q('.calculation-status').className='calculation-status '+(p.status==='当前测算达标'?'green':p.status==='当前测算超标'?'red':'zero');q('.calculation-status').textContent=p.status;
-      const metrics=[['盘盈（元）',p.gain,'green'],['盘亏（元）',p.loss,'red'],['净差异（元）',p.net,cls(Number(p.net))],['净差异率',p.rate===null?'待计算':p.rate+'‰',p.rate===null?'zero':''],['2‰允许损耗（元）',p.allowance,p.allowance===null?'zero':''],[p.over_limit?'超标金额（元）':'剩余额度（元）',p.remaining===null?null:fmt(Math.abs(Number(p.remaining)),2),p.remaining===null?'zero':p.over_limit?'red':'green'],['已填 / 剩余',p.done+' / '+p.remaining_rows,'']];
+      const metrics=[['整店盘盈（元）',p.gain,'green'],['整店盘亏（元）',p.loss,'red'],['净差异（元）',p.net,cls(Number(p.net))],['净差异率',p.rate===null?'待计算':p.rate+'‰',p.rate===null?'zero':''],['2‰允许损耗（元）',p.allowance,p.allowance===null?'zero':''],[p.over_limit?'超标金额（元）':'剩余额度（元）',p.remaining===null?null:fmt(Math.abs(Number(p.remaining)),2),p.remaining===null?'zero':p.over_limit?'red':'green'],['已填 / 剩余',p.done+' / '+p.remaining_rows,'']];
       q('.metrics').innerHTML=metrics.map(([label,value,color])=>`<div class="metric"><small>${esc(label)}</small><strong class="${color}">${esc(value??'待计算')}</strong></div>`).join('');
       q('.audit').textContent=p.note;
       S.renderReport();
       const message=q('.message');message.innerHTML=d.error?`<div class="error">${esc(d.error)}</div>`:S.restore?'<div class="notice">已保留上次未确认草稿。检查黄色输入框，按Enter或离开单元格保存；不会把空白当作0。</div>':'';
       q('.chips').innerHTML=d.filters.map(f=>`<button class="chip ${S.filters.includes(f)?'active':''}" data-filter="${esc(f)}">${esc(f)}</button>`).join('');
-      q('.chips').querySelectorAll('button').forEach(b=>b.onclick=()=>{S.filters=S.filters.includes(b.dataset.filter)?S.filters.filter(f=>f!==b.dataset.filter):[...S.filters,b.dataset.filter];S.focus=null;remember();S.render()});
-      let rows=[...S.rows.values()].filter(r=>(!S.query||[r.name,r.barcode,r.code].some(v=>String(v).toLowerCase().includes(S.query.toLowerCase())))&&(!S.category||r.category===S.category)&&(!S.supplier||r.supplier===S.supplier)&&S.filters.every(f=>r.flags.includes(f)));
-      rows.sort((a,b)=>S.sort==='sequence'?a.sequence-b.sequence:S.sort==='amount'?Math.abs(b.amount||0)-Math.abs(a.amount||0)||a.sequence-b.sequence:S.sort==='quantity'?Math.abs(b.diff||0)-Math.abs(a.diff||0):S.sort==='score'?b.score-a.score:a.category.localeCompare(b.category,'zh-CN')||a.sequence-b.sequence);
-      const found=rows.length,key=JSON.stringify([S.query,S.filters,S.category,S.supplier,S.sort]);
+      q('.chips').querySelectorAll('button').forEach(b=>b.onclick=()=>{S.filters=S.filters.includes(b.dataset.filter)?S.filters.filter(f=>f!==b.dataset.filter):[...S.filters,b.dataset.filter];S.focus=null;S.filterChanged=true;remember();S.render()});
+      let rows=filterRows([...S.rows.values()],S);
+      rows.sort((a,b)=>S.sort==='sequence'?a.sequence-b.sequence:S.sort==='amount'?Math.abs(b.amount||0)-Math.abs(a.amount||0)||a.sequence-b.sequence:S.sort==='quantity'?Math.abs(b.diff||0)-Math.abs(a.diff||0)||a.sequence-b.sequence:S.sort==='score'?b.score-a.score:a.category.localeCompare(b.category,'zh-CN')||a.sequence-b.sequence);
+      const found=rows.length,key=JSON.stringify([S.query,S.filters,S.category,S.supplier,S.sort,S.scope,S.columns]);
       const matches=new Set(rows.map(r=>r.id));
       const reset=key!==S.orderKey;
       if(reset){S.orderKey=key;S.order=S.sort==='pair'?d.pair_order.filter(id=>matches.has(id)):rows.map(r=>r.id);S.loaded=rows.length<=2000?rows.length:200}
       else{const old=new Set(S.order);S.order=S.order.filter(id=>matches.has(id));S.order.push(...rows.filter(r=>!old.has(r.id)).map(r=>r.id))}
       let ids=[...S.order];
+      // 条件变化不能在自动保存回执到达时移除正在输入的DOM；用户离开后再应用筛选。
+      const editing=pinEditing&&active?.matches?.('.edit-count,.edit-note')?active.closest('tr'):null;
+      if(editing&&S.rows.has(editing.dataset.id)&&!ids.includes(editing.dataset.id)){
+        const oldAt=[...tbody.children].indexOf(editing);ids.splice(Math.min(Math.max(0,oldAt),ids.length),0,editing.dataset.id);
+      }
       if(S.focus&&S.rows.has(S.focus)&&!ids.includes(S.focus)){const at=S.locateFrom?ids.indexOf(S.locateFrom):-1;ids.splice(at>=0?at+1:0,0,S.focus)}
       if(S.focus){const at=ids.indexOf(S.focus);if(at>=S.loaded)S.loaded=at+1}
       S.filteredCount=ids.length;const visible=ids.slice(0,S.loaded).map(id=>S.rows.get(id));S.visible=visible;
       const positions=new Map(visible.map((r,i)=>[r.id,i]));
       const locate=q('.locate');if(/^\d{4,8}$/.test(S.query)&&rows.length>1){locate.classList.remove('hidden');locate.innerHTML='<option value="">尾号对应多个商品，请选择完整条码定位</option>'+rows.map(r=>`<option value="${esc(r.id)}">${esc(r.name+' / '+r.barcode)}</option>`).join('')}else locate.classList.add('hidden');
-      q('.result-count').textContent=`当前 ${found} / ${S.rows.size} 条 · 点提示看对应商品`;
+      const sums=rows.reduce((a,r)=>{if(r.amount===null)a.missing++;else if(r.amount<0)a.loss+=r.amount;else a.gain+=r.amount;return a},{gain:0,loss:0,missing:0});const scopeNames={exclude:'不含卓不凡（待确认保留）',all:'全部商品',zbf:'仅卓不凡',eligible:'全部可A换B商品'};const conditions=[scopeNames[S.scope],S.query?'搜索:'+S.query:'',S.category?'品类:'+S.category:'',S.supplier?'供应商:'+S.supplier:'',...S.filters,...Object.entries(S.columns).filter(([,v])=>Object.keys(v).length).map(([k,v])=>columns[k]+':'+Object.entries(v).map(([a,b])=>({mode:'状态：',text:'包含：',min:'≥',max:'≤',value:'选择：'}[a]||a)+({loss:'盘亏',gain:'盘盈',zero:'归零',nonzero:'仍有差异',unreviewed:'未复盘',reviewed:'已复盘',missing:'缺成本／待核实',blank:'空白',filled:'已填写',yes:'有备注',no:'无备注',mix:'疑似串码',eligible:'允许A换B',swap:'有A换B线索',pending:'待确认'}[b]??b)).join('/'))].filter(Boolean);q('.result-count').textContent=`${conditions.join(' · ')}｜当前筛选 ${found}/${S.rows.size}条 · 小计：盈${fmt(sums.gain,2)} / 亏${fmt(sums.loss,2)} / 净${fmt(sums.gain+sums.loss,2)}元${sums.missing?' · '+sums.missing+'条金额待核实':''}（仅找差异，整店统计不变）`;q('.category').value=S.category;q('.supplier').value=S.supplier;root.querySelectorAll('.header-filter').forEach(b=>b.classList.toggle('active',!!Object.keys(S.columns[b.dataset.column]||{}).length||(b.dataset.column==='category'&&!!S.category)||(b.dataset.column==='supplier'&&!!S.supplier)));
       q('.scroll-status').textContent=`已显示 ${visible.length} / ${ids.length} 条 · ${visible.length<ids.length?'继续向下自动加载':'可连续滚轮浏览，无需翻页'}`;
       q('.saved').textContent=S.inflight?'保存 / 载入中…':Object.keys(S.metaDrafts).length||Object.keys(S.drafts).length?'有未确认草稿':`已保存 · ${d.saved_at||d.imported_at} · 版本 ${d.revision}`;
       const keep=new Set(visible.map(r=>r.id));
       for(const tr of [...tbody.children])if(!keep.has(tr.dataset.id))tr.remove();
       for(let i=0;i<visible.length;i++){
         const r=visible[i];let tr=S.dom.get(r.id);
-        if(!tr){tr=document.createElement('tr');tr.dataset.id=r.id;tr.innerHTML='<td class="seq num"></td><td class="category-cell"></td><td class="product"></td><td class="barcode"></td><td class="code col-code"></td><td class="system num"></td><td class="initial num"></td><td><input class="edit-count" inputmode="decimal"></td><td class="total num"></td><td class="difference num"></td><td class="note-cell"><div class="note-inline"><input class="edit-note" type="text"><button class="note-expand" title="展开编辑完整备注" aria-label="展开备注">↗</button></div></td><td class="supplier-cell col-supplier"></td><td class="hints"></td>';S.dom.set(r.id,tr);
+        if(!tr){tr=document.createElement('tr');tr.dataset.id=r.id;tr.innerHTML='<td class="seq num"></td><td class="category-cell"></td><td class="product"></td><td class="barcode"></td><td class="code col-code"></td><td class="system num"></td><td class="initial num"></td><td><input class="edit-count" inputmode="decimal"></td><td class="total num"></td><td class="difference num"></td><td class="amount num"></td><td class="note-cell"><div class="note-inline"><input class="edit-note" type="text"><button class="note-expand" title="展开编辑完整备注" aria-label="展开备注">↗</button></div></td><td class="supplier-cell col-supplier"></td><td class="hints"></td>';S.dom.set(r.id,tr);
           tr.querySelector('.note-expand').onclick=()=>S.openNote(r.id);tr.querySelector('.edit-note').ondblclick=()=>S.openNote(r.id);
           for(const [field,selector] of [['复盘实数','.edit-count'],['备注','.edit-note']]){
             const input=tr.querySelector(selector);input.dataset.field=field;input.setAttribute('aria-label',`${field} ${r.barcode}`);
             input.oninput=()=>S.editCell(r.id,field,input.value);
-            input.onblur=()=>S.commit(r.id,field);
+            input.onblur=()=>{S.commit(r.id,field);queueMicrotask(()=>{if(!root.getRootNode().activeElement?.closest?.('tr'))S.render()})};
             input.onfocus=()=>{const box=input.getBoundingClientRect(),head=q('thead').getBoundingClientRect();if(box.top<head.bottom)S.scrollParent().scrollTop+=box.top-head.bottom-6};
             input.onkeydown=e=>{if(e.key==='F2'&&field==='备注'){e.preventDefault();S.openNote(r.id)}if(e.key==='Enter'&&(field==='复盘实数'||!e.shiftKey)){e.preventDefault();S.commit(r.id,field);const idx=S.visible.findIndex(x=>x.id===r.id);const next=S.dom.get(S.visible[idx+1]?.id)?.querySelector(selector);if(next)next.focus()}};
           }
         }
         const paired=S.sort==='pair'&&r.partner&&Math.abs((positions.get(r.partner)??-999)-i)===1;
         tr.className=(r.id===S.focus?'selected ':'')+(paired?'paired '+(positions.get(r.partner)>i?'group-start':'group-end'):'');
-        const signature=JSON.stringify([r.name,r.code,r.category,r.supplier,r.barcode,r.system,r.initial,r.total,r.initial_diff,r.diff,r.amount,r.change,r.change_label,r.peers,r.partner_peer,r.mix_count,r.swap_count,r.unit_hints,r.flags,r.cross,paired,r.partner]);
+        const signature=JSON.stringify([r.name,r.code,r.category,r.supplier,r.supplier_status,r.eligible,r.barcode,r.system,r.initial,r.total,r.initial_diff,r.diff,r.amount,r.change,r.change_label,r.peers,r.partner_peer,r.mix_count,r.swap_count,r.unit_hints,r.flags,r.cross,paired,r.partner]);
         if(S.rowSignatures.get(r.id)!==signature){
           S.rowSignatures.set(r.id,signature);tr.querySelector('.seq').textContent=r.sequence;
           tr.querySelector('.product').innerHTML=`<button class="row-link name">${esc(r.name)}</button>`;
@@ -162,9 +190,9 @@ export default function(component) {
           tr.querySelector('.row-link').onclick=()=>S.openDetail(r.id,null);
           const basis=`初盘差异 ${fmt(r.initial_diff)}；原始调整 ${fmt(r.adjustment)}；变化 ${fmt(r.change)}；${r.change_label}；差异成本 ${fmt(r.amount,2)}元。点击查看V13计算依据。`;
           tr.querySelector('.difference').innerHTML=`<button class="difference-details ${cls(r.diff)}" title="${esc(basis)}"><strong>${r.diff>0?'+':''}${esc(fmt(r.diff))}</strong><span class="change">${esc(shortChange(r))}</span></button>`;
-          tr.querySelector('.difference-details').onclick=()=>S.openCalculation(r.id);
+          tr.querySelector('.difference-details').onclick=()=>S.openCalculation(r.id);const money=tr.querySelector('.amount');money.className='amount num '+(r.amount===null?'missing-amount':cls(r.amount));money.textContent=r.amount===null?'缺成本／待核实':(r.amount>0?'+':'')+fmt(r.amount,2);money.title='复用V13 current_amount：最新差异×成本，逐商品两位小数';
           const hints=tr.querySelector('.hints');const peer=(paired?r.partner_peer:null)||r.peers?.[0];
-          hints.innerHTML='<div class="hint-inline">'+(peer?`<button class="peer-live" data-other="${esc(peer.id)}" title="${esc(peer.name+' / '+peer.barcode+'；对方差异 '+fmt(peer.diff)+'；疑似待核实，点击定位')}">${peer.mix?'疑似串码':'A换B'} ↔ ${esc(peer.name)}</button>`:'')+'</div>';
+          hints.innerHTML='<div class="hint-inline">'+(peer?`<button class="peer-live" data-other="${esc(peer.id)}" title="${esc(peer.name+' / '+peer.barcode+'；对方差异 '+fmt(peer.diff)+'；疑似待核实，点击定位')}">${peer.mix?'疑似串码':'可A换B'} ↔ ${esc(peer.name)}</button>`:'')+'</div>';
           const links=hints.querySelector('.hint-inline');
           if(peer)hints.querySelector('.peer-live').onclick=()=>S.locateTo(peer.id,r.id);
           const count=r.candidate_count;
@@ -227,7 +255,29 @@ export default function(component) {
       if(!Object.keys(S.drafts).length&&!Object.keys(S.metaDrafts).length)S.restore=false;
     }
   }
-  S.render();S.remember();S.pump();
+  S.render();S.remember();if(S.scope!==data.active_scope&&!S.inflight&&!S.queue.length)S.enqueue('scope',{scope:S.scope});S.pump();
   document.addEventListener('scroll',S.onScroll,true);S.observer.observe(q('.load-sentinel'));
   return ()=>{document.removeEventListener('scroll',S.onScroll,true);S.observer.disconnect()};
+}
+
+// 所有列条件只作用于可见集合；后端财务面板与正式导出始终接收整批原数据。
+export function filterRows(rows,f){
+  return rows.filter(r=>{
+    if(f.scope==='exclude'&&r.supplier_status==='zbf'||f.scope==='zbf'&&r.supplier_status!=='zbf'||f.scope==='eligible'&&!r.eligible)return false;
+    if(f.query&&![r.name,r.barcode,r.code].some(v=>String(v).toLowerCase().includes(f.query.toLowerCase())))return false;
+    if(f.category&&r.category!==f.category||f.supplier&&r.supplier!==f.supplier||!(f.filters||[]).every(v=>r.flags.includes(v)))return false;
+    for(const [key,c] of Object.entries(f.columns||{})){
+      const v=r[key];
+      if(c.text&&!String(v??'').toLowerCase().includes(c.text.toLowerCase()))return false;
+      if(c.min!==undefined&&(v===null||v===undefined||v<c.min)||c.max!==undefined&&(v===null||v===undefined||v>c.max))return false;
+      const m=c.mode;if(!m)continue;
+      if(key==='diff'||key==='amount'){
+        if(m==='loss'&&!(v<0)||m==='gain'&&!(v>0)||m==='zero'&&v!==0||m==='nonzero'&&(v===null||v===0)||m==='missing'&&v!==null||m==='unreviewed'&&r.recount!==null||m==='reviewed'&&r.recount===null)return false;
+      }else if(key==='note'){
+        const filled=!!String(r.note||'').trim();if(m==='yes'&&!filled||m==='no'&&filled)return false;
+      }else if(key==='hints'){
+        if(m==='mix'&&!r.mix_count||m==='eligible'&&!r.eligible||m==='swap'&&!r.swap_count||m==='pending'&&r.supplier_status!=='pending')return false;
+      }else if(m==='blank'&&v!==null||m==='filled'&&v===null||m==='zero'&&v!==0)return false;
+    }return true;
+  });
 }

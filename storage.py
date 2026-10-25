@@ -55,10 +55,37 @@ class Store:
             content BLOB NOT NULL,rows_json TEXT NOT NULL,created TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS item_events_batch ON item_events(batch,id);
         CREATE TABLE IF NOT EXISTS preferences(key TEXT PRIMARY KEY,value TEXT NOT NULL);
-        PRAGMA user_version=14;
+        CREATE TABLE IF NOT EXISTS exchange_products(
+            barcode TEXT PRIMARY KEY, record TEXT NOT NULL, revision INTEGER NOT NULL,
+            updated_at TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS exchange_history(
+            id INTEGER PRIMARY KEY, barcode TEXT NOT NULL, at TEXT NOT NULL,
+            actor TEXT NOT NULL, before_json TEXT NOT NULL, after_json TEXT NOT NULL);
+        PRAGMA user_version=15;
         ''')
 
     def close(self):self.db.close()
+
+    def exchange_list(self):
+        return [json.loads(r[0])|{'_revision':r[1]} for r in self.db.execute('SELECT record,revision FROM exchange_products ORDER BY barcode')]
+
+    def exchange_history(self,barcode=None):
+        sql='SELECT barcode,at,actor,before_json,after_json FROM exchange_history'
+        rows=self.db.execute(sql+(' WHERE barcode=?' if barcode else '')+' ORDER BY id DESC',(barcode,) if barcode else ())
+        return [{'商品条码':b,'时间':t,'操作人':a,'修改前':json.loads(old),'修改后':json.loads(new)} for b,t,a,old,new in rows]
+
+    def save_exchange(self,records,items,actor='本机店长'):
+        from exchange_registry import validate_records
+        records=validate_records(records,items)
+        with self.db:
+            for record in records:
+                bc=record['商品条码'];expected=record.pop('_revision',0)
+                old=self.db.execute('SELECT record,revision FROM exchange_products WHERE barcode=?',(bc,)).fetchone()
+                if (old[1] if old else 0)!=expected:raise ValueError('可换货档案已由另一窗口更新，请刷新后核对')
+                before=old[0] if old else '{}';after=dumps(record)
+                if before==after:continue
+                self.db.execute('INSERT INTO exchange_products VALUES(?,?,?,?) ON CONFLICT(barcode) DO UPDATE SET record=excluded.record,revision=excluded.revision,updated_at=excluded.updated_at',(bc,after,expected+1,now()))
+                self.db.execute('INSERT INTO exchange_history(barcode,at,actor,before_json,after_json) VALUES(?,?,?,?,?)',(bc,now(),actor,before,after))
 
     def preference(self,key):
         r=self.db.execute('SELECT value FROM preferences WHERE key=?',(key,)).fetchone()
@@ -113,6 +140,7 @@ class Store:
         state['meta'].setdefault('report',{})
         info=self.db.execute('SELECT created FROM batches WHERE id=?',(batch,)).fetchone()
         state['meta'].setdefault('first_import_at',info[0])
+        state['exchange_catalog']=self.exchange_list()
         state['meta'].setdefault('source_files',[r[0] for r in self.db.execute('SELECT filename FROM sources WHERE batch=?',(batch,))])
         return items,json.loads(row[1]),state,row[3]
 
@@ -255,6 +283,8 @@ class Store:
             z.writestr('业务状态.json',dumps({'items':items,'notes':notes,'state':state,'revision':revision}))
             z.writestr('修改日志.json',dumps(self.history(batch)))
             z.writestr('逐商品修改轨迹.json',dumps(self.item_history(batch)))
+            z.writestr('可换货商品档案.json',dumps(self.exchange_list()))
+            z.writestr('可换货档案修改历史.json',dumps(self.exchange_history()))
             z.writestr('可选证据目录.json',dumps(self.evidence(batch)))
             for ident,filename,sha,blob in self.db.execute('SELECT id,filename,sha256,content FROM evidence_files WHERE batch=?',(batch,)):
                 if hashlib.sha256(blob).hexdigest()!=sha:raise ValueError('证据原件哈希校验失败')

@@ -14,7 +14,10 @@ def effective_vendors(state,local=None):
 
 class SupplierDirectory:
     def __init__(self,vendors,meta=None,today=None):
-        self.meta=meta or {};self.today=today or datetime.now(ZoneInfo('Asia/Shanghai')).date()
+        self.meta=meta or {}
+        # 已有批次使用创建/首次导入时点；运行日期变化不重新定义历史归属。
+        reference=self.meta.get('supplier_as_of') or self.meta.get('first_import_at')
+        self.today=today or (date.fromisoformat(str(reference)[:10]) if reference else datetime.now(ZoneInfo('Asia/Shanghai')).date())
         self.groups=defaultdict(list);names=defaultdict(set);self.invalid=set()
         for row in vendors:
             bc=as_code(row.get('商品条码'));code=as_code(row.get('供货商编码'));name=str(row.get('供货商名称') or '').strip()
