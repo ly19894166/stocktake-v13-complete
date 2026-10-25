@@ -30,4 +30,15 @@ def prepare():
         (root/'tests/runtime/sumtail_batches.json').write_text(json.dumps(result),encoding='utf8');return result
     finally:s.close()
 
-if __name__=='__main__':print(prepare())
+def select_large():
+    root=Path(__file__).resolve().parents[1];folder=Path(os.environ.get('STOCKTAKE_SUMTAIL_DATA_DIR',root/'tests/runtime/sumtail_data')).resolve()
+    assert folder.is_relative_to((root/'tests/runtime').resolve()),'只允许模拟目录'
+    batches=json.loads((root/'tests/runtime/sumtail_batches.json').read_text('utf8'));s=Store(folder)
+    try:
+        assert batches['2407'] in {b['id'] for b in s.list_batches()}
+        s.set_preference('last_batch',batches['2407'])
+    finally:s.close()
+
+if __name__=='__main__':
+    import sys
+    print(select_large() if '--select-large' in sys.argv else prepare())
