@@ -14,6 +14,8 @@ from imports_exports import (identify_batch,supplier_import,generic_rows,cross_c
 from workbench_component import workbench
 from reporting import financial_panel, report_document, validated_meta_value, report_defaults
 from workflow import linked_order
+from report_intake import resolve_reports
+from supplier_policy import SupplierDirectory,effective_vendors
 import legacy_views as legacy
 
 ROOT=Path(__file__).resolve().parent
@@ -134,7 +136,12 @@ def render_workbench(db,batch,items,state,rev):
     if len(items)<=1500:enrich={x['记录ID'] for x in items}
     selected=st.session_state.get('detail_'+batch)
     if selected:enrich.update(k for k in selected if k)
-    rows=row_models(items,state,engine,cross,enrich);mapping={r['id']:r for r in rows}
+    rows=row_models(items,state,engine,cross,enrich)
+    classes=SupplierDirectory(effective_vendors(state),state['meta']).classify_all(items)
+    for row in rows:
+        c=classes[row['id']];row['supplier']=c['name'];row['supplier_status']=c['status']
+        if c['status']=='pending':row['risk_hints'].append('供货商待确认：'+c['reason'])
+    mapping={r['id']:r for r in rows}
     stats=summary(items,state['meta'].get('sales_cost'))
     # 当前审核只计算计数和已核实凭证，不把所有候选边展开成永久记录。
     blockers=fast_blockers(items,state,engine)
@@ -175,35 +182,33 @@ def fast_blockers(items,state,engine):
     return export_blockers(items,state['meta'],state['vendors'],engine=engine)
 
 def import_panel(db,batch):
-    with st.expander('导入新的初盘 / 恢复已有批次',expanded=batch is None):
-        st.caption('上传两表后直接进入01。系统记录首次导入北京时间和原件摘要；门店无法可靠识别时显示“门店未识别”，不影响使用。')
-        a,b=st.columns(2)
-        generation=st.session_state.get('import_generation',0)
-        gn=a.file_uploader('公司初盘盘盈',type=['xls','xlsx'],key=f'gain_complete_{generation}')
-        ln=b.file_uploader('公司初盘盘亏',type=['xls','xlsx'],key=f'loss_complete_{generation}')
-        if gn is not None and ln is not None:
-            blobs={'盘盈':(gn.name,gn.getvalue()),'盘亏':(ln.name,ln.getvalue())}
-            signature=hashlib.sha256(gn.getvalue()+ln.getvalue()).hexdigest()
+    generation=st.session_state.get('import_generation',0)
+    files=st.file_uploader('上传盘点报表',type=['xls','xlsx'],accept_multiple_files=True,key=f'reports_complete_{generation}',help='一次选择公司原始盘盈和盘亏两份Excel，自动识别；顺序不限。')
+    if not files:return
+    if len(files)==1:st.info('已选择1份，请同时选择另一份盘盈/盘亏报表。');return
+    try:
+        with st.spinner('识别两类原件、校验并恢复已有数据…'):
+            blobs=resolve_reports([(f.name,f.getvalue()) for f in files])
+            gn,ln=blobs['盘盈'],blobs['盘亏']
+            items,notes,fp=parse(gn[0],gn[1],ln[0],ln[1]);meta=identify_batch(blobs)
+            ident=db.create(items,notes,fp,meta.get('store',''),meta.get('period',''),blobs)
+        st.session_state['next_batch']=ident;st.session_state['import_generation']=generation+1
+        st.session_state['next_page']=PAGES[0];st.rerun()
+    except (ValueError,OSError) as exc:st.error('导入失败：'+str(exc))
+
+def advanced_master_import(db):
+    with st.expander('高级V13母版导入'):
+        master=st.file_uploader('完整V13工作簿',type=['xlsx'],key='master_complete')
+        if st.button('打开V13独立批次',disabled=master is None):
             try:
-                with st.spinner('合并原件、校验条码和金额…'):
-                    items,notes,fp=parse(gn.name,gn.getvalue(),ln.name,ln.getvalue())
-                    meta=identify_batch(blobs)
-                    created=db.create(items,notes,fp,meta.get('store',''),meta.get('period',''),blobs)
-                st.session_state['next_batch']=created
-                st.session_state['import_generation']=generation+1
-                st.session_state['next_page']=PAGES[0];st.rerun()
-            except (ValueError,OSError) as exc:st.error('导入失败：'+str(exc))
-        with st.expander('可选：直接打开完整V13工作簿为独立批次'):
-            master=st.file_uploader('完整V13工作簿',type=['xlsx'],key='master_complete')
-            if st.button('打开V13独立批次',disabled=master is None):
-                try:
-                    items,notes,fp,vendors=import_master(master.getvalue(),master.name)
-                    ident=db.create(items,notes,fp,'','',{'V13母版':(master.name,master.getvalue())})
-                    loaded,_,state,rev=db.load(ident)
-                    if vendors and rev==0:
-                        state['vendors']=vendors;db.save(ident,loaded,state,rev,actor(),'母版供货商目录继承')
-                    st.session_state['next_batch']=ident;st.session_state['next_page']=PAGES[0];st.rerun()
-                except ValueError as exc:st.error(str(exc))
+                items,notes,fp,vendors=import_master(master.getvalue(),master.name)
+                ident=db.create(items,notes,fp,'','',{'V13母版':(master.name,master.getvalue())})
+                loaded,_,state,rev=db.load(ident)
+                if vendors and rev==0:
+                    state['vendors']=vendors;db.save(ident,loaded,state,rev,actor(),'母版供货商目录继承')
+                st.session_state['next_batch']=ident;st.session_state['next_page']=PAGES[0];st.rerun()
+            except ValueError as exc:st.error(str(exc))
+
 
 def save_state(db,batch,items,state,rev,source):
     try:db.save(batch,items,state,rev,actor(),source)
@@ -255,24 +260,46 @@ def supplier_page(db,batch,items,state,rev):
             for key in ('商品条码','供货商名称','供货商编码'):
                 chosen=st.selectbox(key+'对应列',['自动识别']+heads,key='mapping_'+key)
                 if chosen!='自动识别':mapping[key]=chosen
-        if st.button('校验并追加供应商目录'):
-            try:new=supplier_import(file.getvalue(),file.name,mapping)
-            except ValueError as exc:st.error(str(exc))
-            else:
-                digest=hashlib.sha256(file.getvalue()).hexdigest()
-                if digest in state['meta'].get('supplier_import_hashes',[]):st.info('同一供应商原件已导入，保留现有目录，不重复追加。')
-                else:
-                    state['vendors']+=new
-                    state['meta'].setdefault('supplier_import_hashes',[]).append(digest)
-                    try:
-                        db.save(batch,items,state,rev,actor(),'供应商Excel导入')
-                        db.add_evidence(batch,'供应商目录','',file.name,file.getvalue(),new)
-                    except ValueError as exc:st.error(str(exc))
-                    else:st.rerun()
-    vendors=state['vendors'];names=sorted({str(v.get('供货商名称') or '') for v in vendors})
+        def import_suppliers():
+            live=Store(db.root)
+            try:
+                fresh,_,latest,version=live.load(batch)
+                if version!=rev:raise ValueError('另一窗口已更新，请刷新后重新导入供应商目录。')
+                upload=st.session_state['vendors_upload'];blob=upload.getvalue();new=supplier_import(blob,upload.name,mapping)
+                digest=hashlib.sha256(blob).hexdigest()
+                if digest not in latest['meta'].get('supplier_import_hashes',[]):
+                    latest['vendors']+=new;latest['meta'].setdefault('supplier_import_hashes',[]).append(digest)
+                    live.save(batch,fresh,latest,version,actor(),'供应商Excel导入')
+                    live.add_evidence(batch,'供应商目录','',upload.name,blob,new)
+                st.session_state['supplier_result_'+batch]=(True,'供应商目录已校验并保存')
+            except ValueError as exc:st.session_state['supplier_result_'+batch]=(False,str(exc))
+            finally:live.close()
+        st.button('校验并追加供应商目录',on_click=import_suppliers)
+    outcome=st.session_state.get('supplier_result_'+batch)
+    if outcome:(st.success if outcome[0] else st.error)(outcome[1])
+    with st.expander('卓不凡供应商编码确认（仅本机）'):
+        catalog=effective_vendors(state);directory=SupplierDirectory(catalog,state['meta'])
+        available=sorted({str(v.get('供货商编码') or '') for v in catalog if str(v.get('供货商名称') or '').strip() in ('卓不凡','桌不凡') and v.get('供货商编码')})
+        st.caption('只有已核实属于同一供应商的编码才确认；冲突条码仍需在下方逐条选择供应商。')
+        chosen=st.multiselect('确认属于卓不凡的有效目录编码',available,default=[c for c in state['meta'].get('zbf_confirmed_codes',[]) if c in available])
+        if st.button('保存已核实的卓不凡编码'):
+            state['meta']['zbf_confirmed_codes']=chosen;save_state(db,batch,items,state,rev,'卓不凡供应商编码人工确认')
+        conflicts_by_code={bc:rows for bc,rows in directory.groups.items() if len({c for c,n in rows})>1}
+        if conflicts_by_code:
+            bc=st.selectbox('按完整条码确认冲突供应商',sorted(conflicts_by_code))
+            codes=['']+sorted({c for c,n in conflicts_by_code[bc] if c})
+            selected_code=state['meta'].get('supplier_codes',{}).get(bc,'')
+            code=st.selectbox('已核实的有效目录编码',codes,index=codes.index(selected_code) if selected_code in codes else 0,
+                format_func=lambda c:'供货商待确认' if not c else c+' · '+('卓不凡' if c in directory.zbf_codes else ' / '.join(sorted({n for v,n in conflicts_by_code[bc] if v==c}))))
+            if st.button('保存该条码供应商归属'):
+                if code:state['meta'].setdefault('supplier_codes',{})[bc]=code
+                else:state['meta'].setdefault('supplier_codes',{}).pop(bc,None)
+                save_state(db,batch,items,state,rev,'冲突条码供应商编码人工确认')
+    display_name=lambda n:'卓不凡' if n in ('卓不凡','桌不凡') else str(n or '')
+    vendors=state['vendors'];names=sorted({display_name(v.get('供货商名称')) for v in vendors})
     selected=st.multiselect('仅分析指定供应商（不删除其他记录）',names)
-    shown=[v for v in vendors if not selected or v.get('供货商名称') in selected]
-    table(shown,alt='完整供应商目录')
+    shown=[v for v in vendors if not selected or display_name(v.get('供货商名称')) in selected]
+    table([{**v,'供货商名称':display_name(v.get('供货商名称')),'归属判定':directory.classify(v)['name']} for v in shown],alt='本地供应商目录，名称显示统一，归属另行核实，原始资料仍留档')
     groups={}
     for v in vendors:groups.setdefault(str(v.get('商品条码') or ''),[]).append(v)
     conflicts={bc:vs for bc,vs in groups.items() if bc and len(vs)>1}
@@ -432,6 +459,8 @@ def company_export(db,batch,items,state,rev):
     b.download_button('下载公司盘点表.xls',blob or b'',file_name='公司盘点表.xls',mime='application/vnd.ms-excel',disabled=blob is None)
     if st.session_state.get('company_preview_'+batch):
         table([{'商品编码':x['商品编码'],'商品条码':x['商品条码'],'数量':num(current_total(x))} for x in items],alt='最新保存数据的最终三列预览')
+    from vendor_audit import audit_panel
+    audit_panel(db,batch,items,state,rev)
 
 def tools_page(db,batch,items,state,rev):
     mode=st.selectbox('更多工具',['供货商数据库','商品档案与异常分析','变化清单/七表母版','来源与本地备份'],key='tools_mode')
@@ -460,7 +489,6 @@ def main():
         [data-testid="stMainBlockContainer"] h3{font-size:1.25rem;padding:.1rem 0 .35rem}
         [data-testid="stMainBlockContainer"] [data-testid="stExpander"] summary{padding:.35rem .65rem;min-height:32px}
         </style>''')
-    st.subheader('高速服务区智能盘点')
     db=Store(dbroot())
     try:
         batches=db.list_batches();byid={b['id']:b for b in batches}
@@ -469,20 +497,20 @@ def main():
             st.session_state['selected_batch']=last if last in byid else max(batches,key=lambda b:(b['revision'],b['created']))['id'] if batches else 'new'
         if 'next_batch' in st.session_state:st.session_state['selected_batch']=st.session_state.pop('next_batch')
         if 'next_page' in st.session_state:st.session_state['navigation']=st.session_state.pop('next_page')
-        current=st.session_state['selected_batch']
-        label='当前批次 / 切换、导入与设置' if current=='new' else byid[current]['store']+' · 切换批次、导入与设置'
-        with st.expander(label,expanded=current=='new'):
-            a,b,c=st.columns([5,2,1])
-            options=['new']+list(byid)
-            selected=a.selectbox('本机批次',options,key='selected_batch',format_func=lambda k:'导入新批次' if k=='new' else
+        current=st.session_state['selected_batch'];batch=None if current=='new' else current
+        with st.container(horizontal=True,vertical_alignment='center'):
+            st.subheader('高速服务区智能盘点')
+            with st.popover('上传盘点报表'):import_panel(db,batch)
+        with st.expander('历史批次与高级设置'):
+            a,b=st.columns([5,2])
+            selected=a.selectbox('本机批次',['new']+list(byid),key='selected_batch',format_func=lambda k:'导入新批次' if k=='new' else
                 f"{byid[k]['store']} · {byid[k]['created'][:16]} · {byid[k]['id'][-6:]}")
             b.text_input('操作人（可选）',key='operator',placeholder='本机店长')
-            c.button('返回01',on_click=lambda:st.session_state.update(navigation=PAGES[0]))
             batch=None if selected=='new' else selected
             if batch:db.set_preference('last_batch',batch)
-            import_panel(db,batch)
+            advanced_master_import(db)
         if batch is None:
-            st.info('只需上传盘盈、盘亏两张报表，自动进入01。无需填写店名、日期或时间。');return
+            st.info('点击“上传盘点报表”，一次选择盘盈、盘亏两份原始Excel。无需填写店名、日期或操作人。');return
         items,notes,state,rev=db.load(batch)
         meta=state['meta']
         if st.session_state.get('navigation') not in PAGES:st.session_state['navigation']=PAGES[0]

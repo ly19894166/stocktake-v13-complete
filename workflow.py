@@ -43,15 +43,14 @@ def linked_order(items,engine=None,loss_first=False):
     return ids,partners
 
 def print_layout(items,all_items,vendors,meta):
-    engine=CandidateEngine(all_items,vendors,meta.get('parameters'),meta.get('main_suppliers'))
-    order,partners=linked_order(items,engine,True);lookup={x['记录ID']:x for x in items};hints={}
-    for a in order:
-        b=partners.get(a)
-        if b is None:
-            peers=engine.peers(a,limit=1);b=peers[0]['id'] if peers else None
-        if b:
-            peer=engine.items[b];pair=engine.pair(a,b)
-            line=('疑似与'+peer['商品名称']+'串码' if pair['mix'] else 'A换B线索：'+peer['商品名称'])+'（待核实）'
-            hints[a]={'related':line,
-                      'group':'|'.join(sorted((a,b))) if a in partners else ''}
-    return [lookup[k] for k in order],hints
+    """现场纸单仅按档案分类/确认路线找货，不输出智能配对内容。"""
+    return print_order(items,'category',meta.get('print_route',[])),{}
+
+def print_order(items,sort='category',route=()):
+    if sort=='sequence':return sorted(items,key=lambda x:x['序号'])
+    if sort=='amount':return sorted(items,key=lambda x:(-abs(current_amount(x) or 0),x['序号']))
+    if sort=='source':return sorted(items,key=lambda x:(x['来源'],x['工作表'],x['原始行号']))
+    if sort not in ('category','field'):raise ValueError('未知打印排序')
+    ranks={str(value):i for i,value in enumerate(route)}
+    return sorted(items,key=lambda x:(ranks.get(x.get('大类') or '未分类',len(ranks)),
+        str(x.get('大类') or '未分类'),str(x.get('中类') or ''),x['序号']))

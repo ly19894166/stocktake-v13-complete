@@ -48,7 +48,8 @@ def test_print_scopes_and_associated_order(workflow_items):
     assert len(ordered)==len({x['记录ID'] for x in ordered})==len(selected)
     a,b=workflow_items[:2];ids=[x['记录ID'] for x in ordered]
     assert abs(ids.index(a['记录ID'])-ids.index(b['记录ID']))==1
-    assert '模拟货架商品乙' in hints[a['记录ID']]['related']
+    assert hints=={} # 纸单不再包含串码/A换B分析
+    assert [x['序号'] for x in ordered]==sorted(x['序号'] for x in selected)
     assert all(newest_diff(x)<0 for x in printable_items(workflow_items,'loss'))
     a['复盘实数']=a['系统数'];assert a not in printable_items(workflow_items)
     assert len(snapshot_rows(ordered,hints))==len(selected)

@@ -14,17 +14,13 @@ const expand=async label=>{const s=page.locator('summary').filter({hasText:label
 const tool=async name=>{await page.getByRole('combobox',{name:'更多工具',exact:true}).click();await page.getByRole('option',{name,exact:true}).click()};
 try{
   await page.goto(url,{waitUntil:'networkidle'});
-  const settings=page.locator('summary').filter({hasText:/切换批次、导入与设置|当前批次 \/ 切换、导入与设置/});
-  if(await settings.locator('..').getAttribute('open')===null)await settings.click();
-  await expand('导入新的初盘 / 恢复已有批次');
-  await page.locator('input[type=file]').nth(0).setInputFiles(path.join(root,'runtime/simulated/模拟盘盈.xls'));
-  await page.getByText('模拟盘盈.xls',{exact:true}).waitFor();
-  await page.locator('input[type=file]').nth(1).setInputFiles(path.join(root,'runtime/simulated/模拟盘亏.xls'));
+  await page.getByRole('button',{name:'上传盘点报表',exact:true}).click();
+  await page.getByTestId('stFileUploader').filter({hasText:'上传盘点报表'}).locator('input[type=file]').setInputFiles(['模拟盘亏.xls','模拟盘盈.xls'].map(n=>path.join(root,'runtime/simulated',n)));
   const grid=page.locator('#stocktake-workbench');await grid.locator('tbody tr').first().waitFor();
   check((await grid.evaluate(el=>el.__inventory.data.rows)).length===12,'非12条模拟批次');
   await page.getByText('更多工具',{exact:true}).first().click();
   await page.getByTestId('stFileUploader').filter({hasText:'批量导入任意供应商Excel'}).locator('input[type=file]').setInputFiles(path.join(out,'模拟供应商.xlsx'));
-  await page.getByRole('button',{name:'校验并追加供应商目录',exact:true}).click();await page.waitForTimeout(500);
+  await page.getByRole('button',{name:'校验并追加供应商目录',exact:true}).click();await page.getByText('供应商目录已校验并保存',{exact:true}).waitFor();
   await tool('商品档案与异常分析');await page.getByText('跨店与交易证据',{exact:true}).first().click();
   await page.getByTestId('stFileUploader').filter({hasText:'上传可选比对证据'}).locator('input[type=file]').setInputFiles(path.join(out,'模拟跨店.xlsx'));
   await page.getByRole('button',{name:'校验证据并留档',exact:true}).click();await page.waitForTimeout(500);

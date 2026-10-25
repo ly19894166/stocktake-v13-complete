@@ -54,7 +54,7 @@ def verify():
                 for code in re.findall(r'(?<!\d)099\d{10}(?!\d)',text):barcodes.append(code);page_of[code]=page_index
             page.extract_text(visitor_text=visit)
             for operands,operator in ContentStream(page.get_contents(),reader).operations:
-                if operator==b're' and abs(float(operands[2])-100)<.1 and float(operands[3])>=34:boxes+=1
+                if operator==b're' and 80<=float(operands[2])<=110 and float(operands[3])>=22:boxes+=1
         assert Counter(barcodes)==Counter(r['barcode'] for r in rows)
         assert embedded and boxes==len(rows)
         groups=defaultdict(list)

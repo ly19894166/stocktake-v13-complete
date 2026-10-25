@@ -1,312 +1,245 @@
 {
   "pass": true,
   "simulated_only": true,
-  "pytest_passed": 83,
+  "pytest_passed": 97,
   "private_business_files_included": false,
   "results": {
-    "browser": {
-      "simulated_only": true,
+    "browser_fourth_results": {
       "pass": true,
+      "simulated_only": true,
       "cases": [
         {
-          "name": "两表导入450条直接进入连续工作台，无分页",
-          "pass": true,
-          "detail": true
+          "name": "一个多文件控件同时上传两份并反向选择，直接进入450条；重复上传恢复实数和原批次",
+          "pass": true
         },
         {
-          "name": "系统2889、初盘1、复盘5：-2888→-2884，找回4件，成本-1816.92",
-          "pass": true,
-          "detail": true
+          "name": "三种窗口第1/200/400条七项统计常驻可读、不遮表头；深处填0实时更新且不失焦、不回顶",
+          "pass": true
         },
         {
-          "name": "一对一和多对多归零/恢复，其他候选及人工备注保留",
-          "pass": true,
-          "detail": true
+          "name": "02专项审计60条/25待确认/900线索对，人工说明及凭证保存，独立Excel实际下载",
+          "pass": true
         },
         {
-          "name": "鼠标滚轮从第一条连续到底，450条始终无空白和回顶",
-          "pass": true,
-          "detail": {
-            "wheel_steps": 8,
-            "last_scroll": 16752
-          }
+          "name": "03默认390/包含450/仅卓不凡60/不含待确认365，实际预览下载/留档/原单重印/按最新筛选新单",
+          "pass": true
         },
         {
-          "name": "深处输入自动保存及详情开关保持滚动位置和输入焦点",
-          "pass": true,
-          "detail": true
-        },
-        {
-          "name": "连续200条实数及穿插备注全部保存",
-          "pass": true,
-          "detail": {
-            "rows": 200,
-            "elapsed_ms": 28394
-          }
-        },
-        {
-          "name": "按金额找货与疑似联排两种视图保留450条唯一记录",
-          "pass": true,
-          "detail": true
-        },
-        {
-          "name": "刚改成本立即复制：等待保存与最新快照，未复制旧金额",
-          "pass": true,
-          "detail": true
-        },
-        {
-          "name": "保存失败明确提示未复制，剪贴板保持原样",
-          "pass": true,
-          "detail": true
-        },
-        {
-          "name": "季度汇报、鲜食独立、同期成本与2‰功能保留",
-          "pass": true,
-          "detail": true
-        },
-        {
-          "name": "03默认按最新状态打印，实际A4预览、留档、原单重印、新数据新单",
-          "pass": true,
-          "detail": true
-        },
-        {
-          "name": "02仅最终模板，未完成核实阻断下载",
-          "pass": true,
-          "detail": true
-        },
-        {
-          "name": "450条批量/撤销后，02实际生成并下载公司三列真XLS，保留0和前导零",
-          "pass": true,
-          "detail": true
-        },
-        {
-          "name": "01实数完成后，03默认清单即时退出",
-          "pass": true,
-          "detail": true
-        },
-        {
-          "name": "供应商、变化、七表及备份仍有更多工具入口",
-          "pass": true,
-          "detail": true
+          "name": "03排除仅用于打印，不改变整店盈亏/2‰；季度汇报仍生成并复制最新值",
+          "pass": true
         }
       ],
       "resolutions": [
         {
           "width": 1366,
           "height": 768,
-          "columns": 13,
-          "table_width": 1316,
-          "overflow": false,
-          "inside": true,
-          "internalScroll": false
+          "positions": [
+            {
+              "row": 1,
+              "top": 268.765625,
+              "bottom": 312.765625,
+              "metrics": 7,
+              "allReadable": true,
+              "header_top": 375.765625,
+              "tableOverflow": false
+            },
+            {
+              "row": 200,
+              "top": 60,
+              "bottom": 104,
+              "metrics": 7,
+              "allReadable": true,
+              "header_top": 104,
+              "tableOverflow": false
+            },
+            {
+              "row": 400,
+              "top": 60,
+              "bottom": 104,
+              "metrics": 7,
+              "allReadable": true,
+              "header_top": 104,
+              "tableOverflow": false
+            }
+          ]
         },
         {
           "width": 1920,
           "height": 1080,
-          "columns": 13,
-          "table_width": 1870,
-          "overflow": false,
-          "inside": true,
-          "internalScroll": false
+          "positions": [
+            {
+              "row": 1,
+              "top": 268.765625,
+              "bottom": 312.765625,
+              "metrics": 7,
+              "allReadable": true,
+              "header_top": 375.765625,
+              "tableOverflow": false
+            },
+            {
+              "row": 200,
+              "top": 60,
+              "bottom": 104,
+              "metrics": 7,
+              "allReadable": true,
+              "header_top": 104,
+              "tableOverflow": false
+            },
+            {
+              "row": 400,
+              "top": 60,
+              "bottom": 104,
+              "metrics": 7,
+              "allReadable": true,
+              "header_top": 104,
+              "tableOverflow": false
+            }
+          ]
         },
         {
           "width": 2560,
           "height": 1440,
-          "columns": 13,
-          "table_width": 2510,
-          "overflow": false,
-          "inside": true,
-          "internalScroll": false
+          "positions": [
+            {
+              "row": 1,
+              "top": 268.765625,
+              "bottom": 312.765625,
+              "metrics": 7,
+              "allReadable": true,
+              "header_top": 375.765625,
+              "tableOverflow": false
+            },
+            {
+              "row": 200,
+              "top": 60,
+              "bottom": 104,
+              "metrics": 7,
+              "allReadable": true,
+              "header_top": 104,
+              "tableOverflow": false
+            },
+            {
+              "row": 400,
+              "top": 60,
+              "bottom": 104,
+              "metrics": 7,
+              "allReadable": true,
+              "header_top": 104,
+              "tableOverflow": false
+            }
+          ]
         }
       ],
       "page_errors": []
     },
-    "report_barrier": {
+    "audit_verification": {
+      "pass": true,
+      "simulated_only": true,
+      "rows": 60,
+      "pending": 25,
+      "candidate_pairs": 900,
+      "headers": [
+        "序号",
+        "品类",
+        "商品名称",
+        "商品条码",
+        "商品编码",
+        "供应商",
+        "系统数",
+        "初盘数",
+        "复盘实数",
+        "当前总数",
+        "最新差异",
+        "差异成本",
+        "疑似A换B对应商品",
+        "人工备注",
+        "核查结论",
+        "凭证编号"
+      ],
+      "column_count": 16,
+      "text_codes_and_barcodes": true,
+      "all_cells_match_saved_records": true,
+      "amounts_match": true,
+      "manual_proof_preserved": true,
+      "company_file_separate": true
+    },
+    "pdf_verification": {
+      "pass": true,
+      "simulated_only": true,
+      "rows": 414,
+      "pages": 25,
+      "per_page_rows": [
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        6
+      ],
+      "blank_handwriting_boxes": 414,
+      "minimum_box_height_points": 22,
+      "embedded_chinese_font": true,
+      "barcodes_complete_and_unique": true,
+      "no_pairing_text_or_groups": true,
+      "category_middle_sequence_sort": true,
+      "historical_reprint_byte_identical": true,
+      "new_data_new_id": true
+    },
+    "company_browser": {
       "pass": true,
       "simulated_only": true,
       "cases": [
         {
-          "name": "数量、成本、鲜食未等保存就打开/重新生成/复制：全部最新，等待期间隐藏旧稿",
-          "pass": true
-        },
-        {
-          "name": "人工稿保存可复制；源数量变化后重新生成清除过期稿并使用最新金额",
-          "pass": true
-        },
-        {
-          "name": "保存失败明确拒绝复制，剪贴板不变，编辑框恢复",
-          "pass": true
-        },
-        {
-          "name": "第二窗口发生真实版本冲突：拒绝保存与复制，保留未保存输入",
-          "pass": true
-        },
-        {
-          "name": "等待复制时关闭窗口：取消复制，剪贴板不变",
+          "name": "450条含卓不凡仍全部进入公司三列真XLS，0有效，填写后退出默认单",
           "pass": true
         }
-      ],
-      "page_errors": []
+      ]
     },
-    "files": {
+    "company_verification": {
       "pass": true,
       "simulated_only": true,
-      "xlsx_not_misnamed": true,
-      "true_xls_ole": true,
+      "true_xls": true,
       "sheet": "Sheet1",
-      "headers": [
-        "商品编码",
-        "商品条码",
-        "数量"
-      ],
       "rows": 450,
-      "typed_columns": [
-        "text",
-        "text",
-        "number"
-      ],
-      "leading_zero_and_zero_preserved": true,
-      "all_rows_match_latest_saved_totals": true,
-      "print_rows": 245,
-      "print_pages": 31,
-      "print_unique_records": true,
-      "each_barcode_once": true,
-      "large_blank_boxes": 245,
-      "embedded_chinese_font": true,
-      "linked_pairs_not_split_across_pages": true,
-      "original_reprint_byte_identical": true,
-      "new_print_id_distinct": true
+      "columns": 3,
+      "typed_text_text_number": true,
+      "all_60_zbf_records_retained": true,
+      "all_rows_equal_latest_totals": true,
+      "original_order_and_leading_zero_and_zero_preserved": true
     },
-    "restart": {
+    "restart_verification": {
       "pass": true,
       "simulated_only": true,
       "real_process_restart": true,
-      "all_tables_identical": true
+      "all_8_tables_unchanged": true
     },
     "reopen_ui": {
       "pass": true,
       "simulated_only": true,
-      "real_process_restart_ui": true,
-      "all_450_rows_and_saved_values_restored": true,
-      "long_names_fully_wrap_at_three_resolutions": true,
-      "pdf_preview_rendered": true,
-      "no_database_writes": true,
-      "page_errors": []
-    },
-    "compact": {
-      "pass": true,
-      "simulated_only": true,
-      "resolutions": [
-        {
-          "width": 1366,
-          "height": 768,
-          "columns": [
-            "序号",
-            "品类",
-            "商品名称",
-            "商品条码",
-            "系统数",
-            "初盘数",
-            "复盘实数",
-            "当前实物总数",
-            "最新差异",
-            "备注／原因",
-            "核查标签"
-          ],
-          "visible_rows": 10,
-          "table_top": 340.953125,
-          "overflow": false,
-          "input_height": 30,
-          "note_tag": "INPUT",
-          "all_codes_fit": true,
-          "core_cells_fit": true,
-          "ordinary_row_height_min": 38,
-          "ordinary_row_height_max": 38
-        },
-        {
-          "width": 1920,
-          "height": 1080,
-          "columns": [
-            "序号",
-            "品类",
-            "商品名称",
-            "商品条码",
-            "商品编码",
-            "系统数",
-            "初盘数",
-            "复盘实数",
-            "当前实物总数",
-            "最新差异",
-            "备注／原因",
-            "供货商",
-            "核查标签"
-          ],
-          "visible_rows": 18,
-          "table_top": 340.953125,
-          "overflow": false,
-          "input_height": 30,
-          "note_tag": "INPUT",
-          "all_codes_fit": true,
-          "core_cells_fit": true,
-          "ordinary_row_height_min": 38,
-          "ordinary_row_height_max": 38
-        },
-        {
-          "width": 2560,
-          "height": 1440,
-          "columns": [
-            "序号",
-            "品类",
-            "商品名称",
-            "商品条码",
-            "商品编码",
-            "系统数",
-            "初盘数",
-            "复盘实数",
-            "当前实物总数",
-            "最新差异",
-            "备注／原因",
-            "供货商",
-            "核查标签"
-          ],
-          "visible_rows": 28,
-          "table_top": 340.953125,
-          "overflow": false,
-          "input_height": 30,
-          "note_tag": "INPUT",
-          "all_codes_fit": true,
-          "core_cells_fit": true,
-          "ordinary_row_height_min": 38,
-          "ordinary_row_height_max": 38
-        }
-      ],
-      "cases": [
-        {
-          "name": "旧flowVersion3串码/金额排序一次性迁移为原始序号，1至450完整升序",
-          "pass": true
-        },
-        {
-          "name": "系统/初盘/复盘/当前总数/差异横向可见，找回4和-1816.92按原引擎更新，点击可查看计算依据",
-          "pass": true
-        },
-        {
-          "name": "原始调整0.4保留：实数0时差异-9.6；清空实数恢复未复盘，与0严格区分",
-          "pass": true
-        },
-        {
-          "name": "单行备注可展开编辑多行；串码提示不撑高，点击定位，归零撤销/恢复重现且备注保留",
-          "pass": true
-        },
-        {
-          "name": "四种排序可切换，串码主动联排后可恢复1至450，后台记录及导出顺序未变",
-          "pass": true
-        },
-        {
-          "name": "450条鼠标滚轮到底无分页/白屏，表头固定，深处填0自动保存不回顶不失焦",
-          "pass": true
-        }
-      ],
-      "page_errors": []
+      "actual_process_restart_ui": true,
+      "recounts_notes_and_catalog_restored": true,
+      "proof_restored": true,
+      "historical_pdf_rendered": true,
+      "no_database_writes": true
     }
   }
 }

@@ -5,6 +5,8 @@ import uuid
 from core import valid_count,newest_diff,current_amount,num,current_total,json_bytes
 from storage import now
 from pdf_renderer import render_pdf
+from workflow import print_order
+from supplier_policy import SupplierDirectory
 
 MODES={'remaining':'待复盘差异','loss':'当前盘亏','new':'从未出单的未复盘差异','difference':'全部差异','all':'全部商品（可额外选择）'}
 
@@ -19,11 +21,22 @@ def printable_items(items,mode='remaining',categories=None,sort='category',print
         if mode=='loss' and (newest_diff(x) is None or newest_diff(x)>=0):continue
         if categories is not None and (x['大类'] or '未分类') not in categories:continue
         result.append(x)
-    if sort=='category':result.sort(key=lambda x:x['序号'])
-    elif sort=='amount':result.sort(key=lambda x:(-abs(current_amount(x) or 0),x['序号']))
-    elif sort=='source':result.sort(key=lambda x:(x['来源'],x['工作表'],x['原始行号']))
-    else:raise ValueError('未知排序')
-    return result
+    return print_order(result,sort)
+
+def select_field_items(items,vendors,meta,mode='remaining',categories=None,sort='category',include_zbf=False,only_zbf=False,include_pending=True,ids=None,printed_ids=()):
+    possible=printable_items(items,mode,categories,'sequence',printed_ids)
+    classes=SupplierDirectory(vendors,meta).classify_all(possible)
+    if ids is not None:possible=[x for x in possible if x['记录ID'] in ids]
+    stats={'excluded_zbf':0,'pending':0}
+    selected=[]
+    for x in possible:
+        c=classes[x['记录ID']]['status']
+        if c=='pending':stats['pending']+=1
+        if c=='zbf' and not (include_zbf or only_zbf):stats['excluded_zbf']+=1;continue
+        if only_zbf and c!='zbf':continue
+        if c=='pending' and not include_pending:continue
+        selected.append(x)
+    return print_order(selected,sort,meta.get('print_route',[])),stats
 
 def snapshot_rows(items,hints=None):
     rows=[]
@@ -35,7 +48,7 @@ def snapshot_rows(items,hints=None):
           'system':num(x['系统数']),'initial':num(x['初盘数']),
           'difference':num(newest_diff(x)),'current_total':num(current_total(x)),
           'recount':num(x['复盘实数']),'note':x.get('备注',''),'source_id':x['记录ID'],
-          **(hints or {}).get(x['记录ID'],{})})
+          })
     return rows
 
 def selection_hash(items,meta,mode,sort,categories):
@@ -47,13 +60,13 @@ def make_pdf(items,meta,batch,pid='PREVIEW',time=None,scope='剩余未复盘',hi
     pages=render_pdf(fp,snapshot_rows(items,hints),meta['store'],meta['period'],batch,pid,time or now(),scope)
     return fp.getvalue(),pages
 
-def generate_print(store,batch,items,meta,mode,sort,categories,revision,hints=None):
+def generate_print(store,batch,items,meta,mode,sort,categories,revision,hints=None,policy=None):
     pid='P'+uuid.uuid4().hex[:20];time=now()
     pdf,pages=make_pdf(items,meta,batch,pid,time,MODES[mode],hints)
     snap={'id':pid,'batch':batch,'time':time,'parent':None,'mode':mode,'sort':sort,
           'categories':categories,'rows':snapshot_rows(items,hints),'count':len(items),'pages':pages,
           'revision':revision,'store':meta['store'],'period':meta['period'],
-          'pdf_sha256':hashlib.sha256(pdf).hexdigest()}
+          'pdf_sha256':hashlib.sha256(pdf).hexdigest(),'filter_policy':policy or {}}
     store.add_print(batch,snap,pdf,revision)
     return snap,pdf
 

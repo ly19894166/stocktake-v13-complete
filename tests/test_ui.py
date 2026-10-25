@@ -6,7 +6,8 @@ def test_new_import_has_no_store_time_form(tmp_path,monkeypatch):
     monkeypatch.setenv('STOCKTAKE_DATA_DIR',str(tmp_path/'empty'))
     at=AppTest.from_file(str(APP),default_timeout=30).run()
     assert not at.exception
-    assert len(at.get('file_uploader'))==3 # 2公司表+可选完整母版
+    assert len(at.get('file_uploader'))==2 # 单控件多文件+高级母版
+    assert at.get('file_uploader')[0].proto.max_upload_size_mb>0
     assert not any('门店' in x.label or '时间' in x.label or '期间' in x.label for x in at.text_input)
 
 def test_all_native_entries_and_optional_evidence(store,batch,monkeypatch):
@@ -29,3 +30,16 @@ def test_all_native_entries_and_optional_evidence(store,batch,monkeypatch):
     for view in ['跨店与交易证据','商品档案','参数与批次设置','复盘变化轨迹','成对候选']:
         at.session_state['advanced_mode']=view;at.run()
         assert not at.exception,view
+
+def test_print_callbacks_persist_before_following_rerender(store,batch,monkeypatch):
+    monkeypatch.setenv('STOCKTAKE_DATA_DIR',str(store.root))
+    at=AppTest.from_file(str(APP),default_timeout=30).run()
+    from client_app import PAGES
+    at.session_state['navigation']=PAGES[2];at.run()
+    next(b for b in at.button if b.label=='生成并保存PDF').click().run()
+    assert not at.exception and len(store.prints(batch))==1
+    first=store.prints(batch)[0];blob=store.print_pdf(batch,first['id'])
+    next(b for b in at.button if b.label=='原单重印并登记').click().run()
+    assert not at.exception and len(store.prints(batch))==2
+    repeated=store.prints(batch)[0]
+    assert repeated['parent']==first['id'] and store.print_pdf(batch,repeated['id'])==blob

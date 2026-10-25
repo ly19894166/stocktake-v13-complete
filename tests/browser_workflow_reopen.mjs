@@ -30,7 +30,7 @@ try{
   const frames=page.frames();
   let visiblePDF=false;
   for(const frame of frames){
-    const canvas=frame.locator('canvas');if(await canvas.count())visiblePDF=await canvas.first().evaluate(el=>el.width>0&&el.height>0);
+    const canvas=frame.locator('canvas:visible');if(await canvas.count())visiblePDF=await canvas.first().evaluate(el=>el.width>0&&el.height>0);
     const embed=frame.locator('embed[type="application/pdf"],iframe[src^="blob:"]');if(await embed.count())visiblePDF=true;
   }
   check(visiblePDF,'浏览器PDF预览未渲染');

@@ -25,12 +25,8 @@ const expand=async text=>{const s=page.locator('summary').filter({hasText:text})
 try{
   await page.goto(testURL,{waitUntil:'networkidle'});
   if(!resume){
-  const settings=page.locator('summary').filter({hasText:/切换批次、导入与设置|当前批次 \/ 切换、导入与设置/});
-  if(await settings.count()&&await settings.locator('..').getAttribute('open')===null)await settings.click();
-  await expand('导入新的初盘 / 恢复已有批次');
-  await page.locator('input[type=file]').nth(0).setInputFiles(path.join(here,'runtime/workflow_demo/模拟450盘盈.xls'));
-  await page.getByText('模拟450盘盈.xls',{exact:true}).waitFor();
-  await page.locator('input[type=file]').nth(1).setInputFiles(path.join(here,'runtime/workflow_demo/模拟450盘亏.xls'));
+  await page.getByRole('button',{name:'上传盘点报表',exact:true}).click();
+  await page.getByTestId('stFileUploader').filter({hasText:'上传盘点报表'}).locator('input[type=file]').setInputFiles(['模拟450盘亏.xls','模拟450盘盈.xls'].map(n=>path.join(here,'runtime/workflow_demo',n)));
   await grid.locator('tbody tr').first().waitFor({timeout:60000});
   await page.waitForFunction(()=>{const h=[...document.querySelectorAll('*')].find(e=>e.shadowRoot?.querySelector('#stocktake-workbench'));return h?.shadowRoot.querySelector('#stocktake-workbench').__inventory.visible.length===450});
   check(await grid.locator('tbody tr').count()===450,'未连续加载全部450条');

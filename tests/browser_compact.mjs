@@ -20,12 +20,11 @@ try{
   await page.goto(url,{waitUntil:'networkidle'});
   const needsImport=await Promise.race([
     grid.waitFor({timeout:30000}).then(()=>false),
-    page.getByText('只需上传盘盈、盘亏两张报表，自动进入01。无需填写店名、日期或时间。',{exact:true}).waitFor({timeout:30000}).then(()=>true)
+    page.getByText('点击“上传盘点报表”，一次选择盘盈、盘亏两份原始Excel。无需填写店名、日期或操作人。',{exact:true}).waitFor({timeout:30000}).then(()=>true)
   ]);
   if(needsImport){
-    const importer=page.locator('summary').filter({hasText:'导入新的初盘 / 恢复已有批次'});if(await importer.locator('..').getAttribute('open')===null)await importer.click();
-    await page.locator('input[type=file]').nth(0).setInputFiles(path.join(here,'runtime/workflow_demo/模拟450盘盈.xls'));await page.getByText('模拟450盘盈.xls',{exact:true}).waitFor();
-    await page.locator('input[type=file]').nth(1).setInputFiles(path.join(here,'runtime/workflow_demo/模拟450盘亏.xls'));
+    await page.getByRole('button',{name:'上传盘点报表',exact:true}).click();
+    await page.getByTestId('stFileUploader').filter({hasText:'上传盘点报表'}).locator('input[type=file]').setInputFiles(['模拟450盘亏.xls','模拟450盘盈.xls'].map(n=>path.join(here,'runtime/workflow_demo',n)));
   }
   await grid.locator('tbody tr').first().waitFor({timeout:30000});check((await data()).rows.length===450,'非450条模拟批次');
   if(before){
@@ -77,7 +76,7 @@ try{
     const latest=await data();check(latest.rows.map(r=>r.id).join('|')===original.rows.map(r=>r.id).join('|'),'视觉排序修改后端ID/导出顺序');
     record('四种排序可切换，串码主动联排后可恢复1至450，后台记录及导出顺序未变');
     await top();await page.mouse.move(1700,650);let bottom=false;
-    for(let i=0;i<60;i++){await page.mouse.wheel(0,1400);await page.waitForTimeout(35);const s=await grid.evaluate(el=>{const sc=el.__inventory.scrollParent();return {bottom:sc.scrollTop+sc.clientHeight>=sc.scrollHeight-3,head:el.querySelector('th').getBoundingClientRect().top,visible:[...el.querySelectorAll('tbody tr')].some(tr=>{const r=tr.getBoundingClientRect();return r.bottom>90&&r.top<innerHeight})}});check(s.visible,'滚轮出现大片空白');if(i>0)check(s.head>=60&&s.head<90,'固定表头被顶部栏遮挡');if(s.bottom){bottom=true;break}}
+    for(let i=0;i<60;i++){await page.mouse.wheel(0,1400);await page.waitForTimeout(35);const s=await grid.evaluate(el=>{const sc=el.__inventory.scrollParent();return {bottom:sc.scrollTop+sc.clientHeight>=sc.scrollHeight-3,head:el.querySelector('th').getBoundingClientRect().top,visible:[...el.querySelectorAll('tbody tr')].some(tr=>{const r=tr.getBoundingClientRect();return r.bottom>90&&r.top<innerHeight})}});check(s.visible,'滚轮出现大片空白');if(i>0)check(s.head>=104&&s.head<150,'固定表头被顶部栏遮挡');if(s.bottom){bottom=true;break}}
     check(bottom&&!await grid.getByRole('button',{name:/上一页|下一页/}).count(),'未连续滚到底或仍有分页');
     const target=await grid.evaluate(el=>{const sc=el.__inventory.scrollParent();sc.scrollTop=sc.scrollHeight*.6;return el.__inventory.visible[280].barcode});
     await row(target).locator('.edit-count').scrollIntoViewIfNeeded();const input=row(target).locator('.edit-count');await input.fill('0');const position=await grid.evaluate(el=>el.__inventory.scrollParent().scrollTop);await saved();
