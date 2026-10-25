@@ -61,6 +61,8 @@ class CandidateEngine:
             return self._cache[sig]
         sign=-1 if d>0 else 1
         if kind=='swap':
+            # 统一后端资格只接受确认卓不凡；旧人工档案不能进入索引或计数。
+            if not self.eligibility[key]['eligible']:return EMPTY
             result=self.vendor_index.get((self.eligibility[key]['group'],sign),EMPTY)
         else:
             if c is None:return EMPTY

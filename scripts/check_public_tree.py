@@ -8,7 +8,7 @@ import sys
 ROOT=Path(__file__).resolve().parents[1]
 MAX_SIZE=512*1024
 ROOT_FILES=set('app.py bootstrap.py client_app.py core.py source_core.py intelligence.py imports_exports.py storage.py reporting.py workflow.py field_printing.py legacy_views.py pdf_renderer.py print_manager.py workbench_component.py requirements.txt requirements-lock.txt requirements-dev.txt start_windows.bat run_tests.bat vendors.json README.md CONTRIBUTING.md SECURITY.md AGENTS.md SOURCE_MANIFEST.json ACCEPTANCE.md .gitignore .gitattributes 启动完整盘点客户端.cmd 启动盘点软件V1.3.cmd'.split())
-ROOT_FILES.update({'report_intake.py','supplier_policy.py','vendor_audit.py','exchange_rules.py','exchange_registry.py','EXCHANGE_DATABASE.md'})
+ROOT_FILES.update({'report_intake.py','supplier_policy.py','vendor_audit.py','exchange_rules.py','exchange_registry.py','EXCHANGE_DATABASE.md','balance_service.py','company_export.py'})
 PATTERNS=[
     ('GitHub credential',re.compile(r'gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{30,}')),
     ('AWS credential',re.compile(r'(?:AKIA|ASIA)[A-Z0-9]{16}')),
@@ -29,7 +29,7 @@ def allowed(path):
     if path=='tests/workflow_acceptance.json':return True
     if len(p.parts)==2 and p.parts[0] in ('tests','scripts'):
         return p.suffix in ('.py','.mjs') and not p.name.startswith('.')
-    if path in ('ui/workbench.js','ui/workbench.css'):return True
+    if path in ('ui/workbench.js','ui/workbench.css','ui/workbench_stats.js'):return True
     if path in ('.github/workflows/ci.yml','.github/pull_request_template.md'):return True
     return False
 

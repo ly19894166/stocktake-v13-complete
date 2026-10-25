@@ -42,7 +42,7 @@ def filtered_rows(model,status='全部',category='全部',include_pending=False)
 
 def audit_excel(model,rows):
     import openpyxl
-    w=openpyxl.Workbook();s=w.active;s.title='可A换B商品专项审计';s.append(HEADERS)
+    w=openpyxl.Workbook();s=w.active;s.title='卓不凡A换B专项核对';s.append(HEADERS)
     for row in rows:
         s.append([row[k] for k in HEADERS])
         for col in (4,5):s.cell(s.max_row,col).data_type='s';s.cell(s.max_row,col).number_format='@'
@@ -78,11 +78,11 @@ def audit_excel(model,rows):
 def audit_panel(db,batch,items,state,rev):
     import streamlit as st
     outcome=st.session_state.get('zbf_result_'+batch)
-    pane=st.expander('可A换B商品专项审计',on_change='rerun',key='swap_audit_'+batch)
+    pane=st.expander('卓不凡A换B专项核对',on_change='rerun',key='swap_audit_'+batch)
     if not pane.open:return
     with pane:
         model=audit_model(items,effective_vendors(state),state['meta'],state.get('exchange_catalog',[]));stats=model['stats']
-        st.write(f"可换货：{stats['商品总条数']}条（卓不凡{stats['卓不凡商品']} / 其他{stats['其他可换货商品']}） · 已复盘{stats['已复盘']} / 未复盘{stats['未复盘']} · 供货商待确认{stats['供货商待确认']}条")
+        st.write(f"卓不凡：{stats['商品总条数']}条 · 已复盘{stats['已复盘']} / 未复盘{stats['未复盘']} · 供货商待确认{stats['供货商待确认']}条")
         st.write(f"盘盈{stats['盘盈']:.2f}元 · 盘亏{stats['盘亏']:.2f}元 · 净差异{stats['净差异']:.2f}元 · 强疑似重点 {stats['强疑似重点对数']}对 · 未核实{stats['未核实对数']}对；每件默认仅列最相关3项，完整候选在Excel")
         if stats['缺失金额']:st.warning(f"{stats['缺失金额']}条成本无法计算，汇总仅含已知金额。")
         a,b=st.columns(2)
@@ -91,7 +91,7 @@ def audit_panel(db,batch,items,state,rev):
         pending=st.checkbox('专项表同时显示供货商待确认商品',key='zbf_pending_'+batch)
         rows=filtered_rows(model,status,cat,pending)
         st.dataframe([{k:r[k] for k in HEADERS} for r in rows],hide_index=True,alt='可A换B独立专项审计，不是公司上传表')
-        st.download_button('下载可A换B专项审计Excel',audit_excel(model,rows),'可A换B专项审计_非公司上传.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',on_click='ignore')
+        st.download_button('下载卓不凡A换B核对Excel',audit_excel(model,rows),'卓不凡A换B核对_非公司上传.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',on_click='ignore')
         st.caption(f'专项审计数据版本：{rev} · 当前完整候选可在独立Excel查询，未自动抵销。')
         # 写入成功提示放在最新下载数据刷新之后，避免提示出现时仍下载上一版凭证。
         if outcome:(st.success if outcome[0] else st.error)(outcome[1])

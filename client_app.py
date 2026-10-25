@@ -1,6 +1,6 @@
 """一次完整升级的本机客户端：01直达、可见候选、证据和原有完整功能。"""
 from pathlib import Path
-import copy,os,io,csv,json,hashlib,html
+import copy,os,io,csv,json,hashlib,html,sqlite3
 from decimal import Decimal as D
 import pandas as pd
 import streamlit as st
@@ -19,7 +19,7 @@ from supplier_policy import SupplierDirectory,effective_vendors
 import legacy_views as legacy
 
 ROOT=Path(__file__).resolve().parent
-PAGES=['01 连续复盘找差异','02 公司盘点结果导出','03 现场复核单打印','更多工具']
+PAGES=['01 现场复盘与找差异','03 现场复核单打印','更多工具']
 
 @st.cache_data(max_entries=5,show_spinner=False)
 def parse(gn,gb,ln,lb):return import_pair((gn,gb),(ln,lb))
@@ -60,7 +60,7 @@ def component_action(batch):
     db=Store(dbroot())
     try:
         items,notes,state,rev=db.load(batch);kind=event.get('kind');mapping={x['记录ID']:x for x in items}
-        if kind in ('edit','edits','bulk','undo','meta'):
+        if kind in ('edit','edits','bulk','undo','meta','export_checks'):
             if event.get('revision')!=rev:raise ValueError('另一窗口已更新。输入草稿仍保留，请刷新并核对后重试')
         if kind=='copy_snapshot' and event.get('purpose')=='reset' and event.get('revision')!=rev:
             raise ValueError('另一窗口已更新，请刷新后按最新数据生成汇报')
@@ -104,8 +104,23 @@ def component_action(batch):
             updated=patch_items(items,bulk_patches(event.get('text',''),items))
             db.save(batch,updated,state,rev,actor(),'01批量粘贴',request)
         elif kind=='undo':db.undo_last(batch,rev,actor())
+        elif kind=='export_checks':
+            if not all(isinstance(event.get(k),bool) for k in ('coverage','evidence')):raise ValueError('核查条件无效')
+            state['meta'].update(coverage=event['coverage'],evidence=event['evidence'])
+            db.save(batch,items,state,rev,actor(),'01导出完整性确认',request)
+            from company_export import snapshot
+            st.session_state['export_'+batch]=snapshot(db,batch,request)
+        elif kind=='export_snapshot':
+            from company_export import snapshot
+            st.session_state['export_'+batch]=snapshot(db,batch,request)
+        elif kind in ('balance_generate','balance_draft','balance_confirm','balance_reject'):
+            from balance_service import BalanceService
+            service=BalanceService(db)
+            if kind=='balance_generate':service.generate(batch,event['revision'],request,actor())
+            elif kind=='balance_confirm':service.confirm(batch,event['run'],event['version'],event['revision'],event['id'],event['value'],event.get('note',''),request,actor())
+            else:service.edit(batch,event['run'],event['version'],event['revision'],event['id'],event.get('value'),event.get('note',''),'reject' if kind=='balance_reject' else 'draft',request,actor())
         elif kind=='scope':
-            if event.get('scope') not in ('exclude','all','zbf','eligible'):raise ValueError('无效商品范围')
+            if event.get('scope') not in ('exclude','all','zbf'):raise ValueError('无效商品范围')
             st.session_state['exchange_scope_'+batch]=event['scope']
         elif kind=='view':
             prior=st.session_state.get('enrich_'+batch,[])
@@ -125,7 +140,7 @@ def component_action(batch):
         elif kind!='refresh':raise ValueError('未识别操作')
         st.session_state[ackkey]={'id':request,'ok':True}
         if kind not in ('view','detail','more_peers'):st.session_state.pop('grid_error_'+batch,None)
-    except (ValueError,KeyError) as exc:
+    except (ValueError,KeyError,OSError,sqlite3.Error) as exc:
         st.session_state[ackkey]={'id':request,'ok':False}
         st.session_state['grid_error_'+batch]=str(exc)
     finally:db.close()
@@ -144,6 +159,11 @@ def render_workbench(db,batch,items,state,rev):
     for row in rows:
         c=classes[row['id']];row['supplier']=c['name'];row['supplier_status']=c['status']
         if c['status']=='pending':row['risk_hints'].append('供货商待确认：'+c['reason'])
+    byid={x['记录ID']:x for x in items}
+    for row in rows:
+        x=byid[row['id']]
+        values={'system':decimal_value(x.get('系统数')),'initial':decimal_value(x.get('初盘数')),'recount':decimal_value(x.get('复盘实数')),'total':current_total(x),'diff':newest_diff(x),'amount':current_amount(x)}
+        row['stats_raw']={k:format(v,'f') if v is not None else None for k,v in values.items()}
     mapping={r['id']:r for r in rows}
     stats=summary(items,state['meta'].get('sales_cost'))
     # 当前审核只计算计数和已核实凭证，不把所有候选边展开成永久记录。
@@ -173,15 +193,24 @@ def render_workbench(db,batch,items,state,rev):
         'detail':detail,'finance':{'sales_amount':state['meta'].get('sales_amount'),'sales_cost':state['meta'].get('sales_cost')},
         'panel':financial_panel(items,state['meta']),'report':report_document(items,state['meta']),
         'copy_snapshot':st.session_state.get('copy_'+batch),
-        'audit':('正式导出请在02完整检查' if not blockers else f'正式导出尚有{len(blockers)}项待办，详见02'),
+        'audit':('可在01顶部下载盘点结果' if not blockers else f'正式导出尚有{len(blockers)}项待办，点击下载盘点结果核查'),
         'stats':{'difference_count':sum(newest_diff(x) not in (None,0) for x in items),
            'done':stats['已复盘'],'pending':sum(x.get('复盘实数') is None and newest_diff(x) not in (None,0) for x in items),
            'loss':num(stats['盘亏']),'gain':num(stats['盘盈']),'net':num(stats['净差异']),
            'rate':num(stats['报损率']),'zero_count':sum(x.get('复盘实数') is not None and newest_diff(x)==0 for x in items)}}
+    from company_export import export_signature
+    payload['export_snapshot']=st.session_state.get('export_'+batch);payload['export_signature']=export_signature(rev,state)
+    payload['balance']=None
+    if st.session_state.get('exchange_scope_'+batch)=='zbf':
+        from balance_service import BalanceService,supplier_signature
+        service=BalanceService(db);run=service.latest(batch)
+        if run is None:run=service.generate(batch,rev,'initial:'+batch+':'+str(rev)+':'+supplier_signature(state),actor())
+        payload['balance']={**run,'stale':run['revision']!=rev or run['signature']!=supplier_signature(state)}
+        payload['balance']['history']=[{'at':h['时间'],'kind':h['操作'],'item':h['商品记录'],
+            'old':h['修改后'].get('formal_before'),'new':h['修改后'].get('formal_after'),
+            'note':h['修改后'].get('entry',{}).get('note','')} for h in service.history(batch)[:100]]
     render_total_rail(payload['panel'])
-    from exchange_registry import registry_panel
-    registry_panel(db,batch,items,state)
-    if st.session_state.get('exchange_scope_'+batch)=='eligible':
+    if st.session_state.get('exchange_scope_'+batch)=='zbf':
         from vendor_audit import audit_panel
         audit_panel(db,batch,items,state,rev)
     workbench(payload,lambda:component_action(batch),'workbench_'+batch)
@@ -248,7 +277,7 @@ def changes_exports(db,batch,items,state,rev):
             '核查标签':'；'.join(p['kind']+' ↔ '+p['name']+' / '+p['barcode'] for p in engine.peers(x['记录ID'])),
             '原始行号':x['原始行号'],'原文件':x['原文件']})
     df=table(rows,alt='自动变化与当前实物数量')
-    st.warning('以下均为核对草稿。公司最终三列文件请到02生成，禁止把草稿作为库存调整提交。')
+    st.warning('以下均为核对草稿。公司最终三列文件请在01顶部下载盘点结果中生成，禁止把草稿作为库存调整提交。')
     st.download_button('下载变化草稿 CSV（非系统上传）',('草稿·未批准·禁止库存调整提交\n'+df.to_csv(index=False)).encode('utf-8-sig'),'草稿_变化核对_禁止上传.csv','text/csv')
     candidate_scope=st.selectbox('工作簿异常候选范围',['all','summary'],format_func=lambda k:'完整成对候选' if k=='all' else '每商品前3条摘要（全量在软件分页查看）')
     if st.button('生成完整V13工作簿草稿（7表）'):
@@ -425,7 +454,7 @@ def advanced(db,batch,items,state,rev):
         if st.button('撤销上一次输入（保留日志）'):
             try:db.undo_last(batch,rev,actor());st.rerun()
             except ValueError as exc:st.error(str(exc))
-        st.caption('升级前日志完整保留，可在02的来源与备份中下载。')
+        st.caption('升级前日志完整保留，可在更多工具的来源与备份中下载。')
 
 def evidence_ui(db,batch,items,state):
     st.caption('可选证据不改变本店实数、系统库存或原始调整。未上传时正常使用01；未提供日期的行只提示核实同期。')
@@ -447,45 +476,15 @@ def evidence_ui(db,batch,items,state):
     a,b=st.columns(2);start=a.text_input('比对起始日期（可选 YYYY-MM-DD）');end=b.text_input('比对结束日期（可选 YYYY-MM-DD）')
     if bc:table(transactions_for(bc,evidence,start,end),alt='条码和期间筛选的交易证据')
 
-def company_export(db,batch,items,state,rev):
-    from core import create_company_xls
-    st.subheader('公司盘点结果导出')
-    meta=state['meta'];errors=validate_all(items)
-    engine=engine_for(items,state)
-    blockers=fast_blockers(items,state,engine)
-    pending=sum(x.get('复盘实数') is None for x in items)
-    st.caption(f"当前批次：{meta['store']} · {meta['period']} · {batch}")
-    a,b,c=st.columns(3);a.metric('商品条数',len(items));b.metric('待复盘条数',pending);c.metric('数据检查',f'{len(errors)}项错误' if errors else '数据格式通过')
-    if blockers:st.info(f'核对草稿 · {len(blockers)}项条件待完成；检查通过后才可下载正式候选。')
-    else:st.success('正式候选 · 本机检查通过，审批和公司系统上传仍由人工完成。')
-    st.caption('按01最新已保存的有效实物总数实时生成；严格为商品编码、商品条码、数量三列，不含补货申请字段。')
-    with st.expander('导出检查与剩余问题',expanded=pending==0 and bool(blockers)):
-        with st.form('company_checks_'+batch):
-            coverage=st.checkbox('确认同门店、同期间且覆盖本次完整盘点范围',value=meta.get('coverage',False))
-            evidence=st.checkbox('确认差异已核实、相关凭证齐备',value=meta.get('evidence',False))
-            if st.form_submit_button('保存导出确认'):
-                updated=copy.deepcopy(state);updated['meta'].update(coverage=coverage,evidence=evidence)
-                save_state(db,batch,items,updated,rev,'02导出完整性确认')
-        if blockers:
-            st.write('；'.join(blockers[:5]))
-            with st.expander(f'查看全部{len(blockers)}项剩余问题'):
-                table([{'剩余问题':v} for v in blockers],alt='正式导出阻断列表')
-        st.caption('未复盘、无效条码、缺编码、无效数量、待核线索、缺原因/凭证或超过2‰等条件仍会阻断正式导出。经营金额在01填写。')
-    a,b=st.columns(2)
-    if a.button('预览最终三列',key='preview_company_'+batch):st.session_state['company_preview_'+batch]=True
-    blob=None
-    if not blockers:
-        try:blob=create_company_xls(items,meta,state['vendors'],engine=engine)
-        except ValueError as exc:st.error(str(exc))
-    b.download_button('下载公司盘点表.xls',blob or b'',file_name='公司盘点表.xls',mime='application/vnd.ms-excel',disabled=blob is None)
-    if st.session_state.get('company_preview_'+batch):
-        table([{'商品编码':x['商品编码'],'商品条码':x['商品条码'],'数量':num(current_total(x))} for x in items],alt='最新保存数据的最终三列预览')
 
 def tools_page(db,batch,items,state,rev):
-    mode=st.selectbox('更多工具',['供货商数据库','商品档案与异常分析','变化清单/七表母版','来源与本地备份'],key='tools_mode')
+    mode=st.selectbox('更多工具',['供货商数据库','商品档案与异常分析','变化清单/七表母版','来源与本地备份','历史人工换货档案（只读）'],key='tools_mode')
     if mode=='供货商数据库':supplier_page(db,batch,items,state,rev)
     elif mode=='商品档案与异常分析':advanced(db,batch,items,state,rev)
     elif mode=='变化清单/七表母版':changes_exports(db,batch,items,state,rev)
+    elif mode=='历史人工换货档案（只读）':
+        from exchange_registry import registry_panel
+        registry_panel(db,batch,items,state)
     else:legacy.sources(db,batch,items,[],state)
 
 def print_page(db,batch,items,state,rev):
@@ -535,8 +534,7 @@ def main():
         if st.session_state.get('navigation') not in PAGES:st.session_state['navigation']=PAGES[0]
         page=st.segmented_control('业务入口',PAGES,key='navigation',width='stretch',label_visibility='collapsed') or PAGES[0]
         if page==PAGES[0]:render_workbench(db,batch,items,state,rev)
-        elif page==PAGES[1]:company_export(db,batch,items,state,rev)
-        elif page==PAGES[2]:
+        elif page==PAGES[1]:
             from field_printing import print_workbench
             print_workbench(db,batch,items,state,rev)
         else:tools_page(db,batch,items,state,rev)

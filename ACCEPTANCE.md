@@ -1,40 +1,43 @@
-# 第五次集中优化验收
+# 第六次集中优化验收
 
-基线为PR #1当前开发分支，继续feature/complete-workbench-quarterly-report，不合并main。所有自动化仅使用从零生成的480条虚构商品；正式数据仅在本机备份及只读完整性核对中使用。
+范围：同一PR开发分支，导航仅01、03、更多工具。V13数量、原始调整、逐商品金额、2‰与季度汇报规则不改；真实资料不参与测试或进入公开源码。
 
-|验收项|结果及核对方法|
-|---|---|
-|01商品范围|默认不含已确认卓不凡，480条中显示420；仅卓不凡60，全部480；启用手工档案20条后全部可A换B80。25条待确认保留并提示。卓不凡范围包含未复盘、已复盘与归零商品。|
-|表头组合筛选|差异正负/零、仍有差异、未/已复盘、正负数量区间、金额区间及绝对值排序；品类、人工备注、系统/初盘/复盘数、串码、资格、供应商、编码和尾号逐集合比对。前端独立边界测试验证0/空白/未知金额。|
-|清除与兼容|恢复“不含卓不凡＋原始序号”；旧flowVersion4的金额排序和筛选首次重置，未确认输入草稿保留，清除筛选不删草稿。|
-|差异金额|480行显示逐条对比core.current_amount；正绿负红、零0.00；缺成本保持未知。特殊原始调整和V13逐行舍入不变。实际填0金额更新，未复盘条件下自动保存暂留焦点行，离开后再筛选。|
-|资格数据库|28条模拟档案：20条启用到期、4条停用、4条未来；界面精确查条码、变更组、启用后81条，再停用恢复80条，历史共30次变更。身份不符、重复、无组/依据、无效日期/状态整批拒绝。跨批次、真实重启及版本冲突验证。|
-|A换B后端|普通同供应商不授权；两端都有效、同一确认组、反向非零才存在候选；不同人工组、卓不凡与人工组、不同卓不凡有效供应商不跨组。归零撤销，恢复差异重算；普通串码保留。索引和缓存包含换货组。|
-|01专项审计|80条（卓不凡60、其他20），16列主表，每件界面最多3个相关候选。完整950个有效配对仅在完整查询/Excel保留，含排序强度、依据。双方关系、单商品说明和凭证实际保存，下载文件独立逐格读回，旧资料仍保留。|
-|口径隔离|切换范围及组合筛选前后，完整panel与批次revision不变；七项整店统计始终用480条全量。筛选小计明确仅用于找差异。|
-|02全店公司表|不再出现任何专项入口。01处于仅卓不凡时，仍生成480行真XLS，唯一Sheet1、严格商品编码/条码/数量三列；逐行等于全店当前总数，类型文本/文本/数字，含全部卓不凡及手工可换货商品。|
-|03规则保持|默认仅按已确认卓不凡排除，手工可换货的20条均保留在符合范围的找货单；大类/中类/原序号排序。原单重印下载字节完全相同；历史不被新资格改写。|
-|A4回归|414条，25页（24页各17条、末页6条）；414个至少22pt手写框，完整条码各一次，中文字体嵌入，无串码/A换B分析文字；渲染检查首页、中间与末页。|
-|三种屏幕|1366×768、1920×1080、2560×1440，在第1/200/400/480条实际截图和测量；普通行≤42px、输入可用、条码及金额可见、无横向溢出；七项统计与固定表头不重叠。|
-|原有功能与迁移|119项pytest通过，含旧V13、0/空白、2‰边界、季度汇报、存储、撤销、公司导出、原PDF及全8表模拟旧库迁移。新增两表，旧表记录不改写。|
-|真实重启|模拟应用实际停止重启后，480条复盘、28条档案、双方凭证、历史PDF可读，全部10表哈希一致。|
+## 自动与实际界面验证
 
-截图、Excel、PDF、SQLite及详细JSON只在本机忽略目录tests/runtime/fifth_results。公开摘要为tests/workflow_acceptance.json，资格档案说明见EXCHANGE_DATABASE.md。PDF视觉验收不等同于实体打印机走纸。
+- 138项Python/Node回归通过：覆盖原计算、0与空白、导入恢复、三列真XLS、打印原单、普通串码、供应商冲突/有效期与批次基准、人工档案历史、卓不凡资格、建议分离、10/-8示例、成本独立、单位/箱规不足、多候选、不同供应商、原始调整、四位精度、单方确认及重算、撤销、目录变更、幂等、事务失败回滚和重启。
+- 独立500条虚构商品浏览器：一个控件导入两报表；60条确认卓不凡；20条旧人工授权档案仅留历史。默认仅排除卓不凡，普通串码存在，非卓不凡A换B为0。
+- 建议先显示12/20，草稿不变正式数据。A确认后实数12、差异+2、金额+4，B仍空白；重新生成保留单方事实，B独立确认后数量32守恒。已确认值和原件不被重算覆盖。
+- 实际鼠标拖拽、Shift矩形及Ctrl追加；精确求和单元用259格=9094，0.1+0.2=0.3及大整数验证。负数、0、空白、草稿及不同单位分别计数求和。
+- 01弹窗读取全店500条，未复盘/核查未完成按旧规则阻断。先保存未失焦0和经营输入；仅卓不凡视图仍导出500行。独立xlrd验证真XLS签名、3列、文本/文本/数值与全量快照逐行相等。
+- 双窗口在弹窗打开后修改正式数量，点击下载必须重新读取新revision；保存失败不得下载文件，输入草稿保留。
+- 1366×768、1920×1080、2560×1440：第一/200/400/500条位置七项统计可见、表头不被遮挡、普通行≤42px（目标38px）、金额/完整条码可见且无横向溢出；选区固定底栏，导出对话框不越屏。
+- 03默认排除确认卓不凡、品类/中类/序号排序；历史PDF与原单重印字节相等。414条A4为25页，前24页17条、末页6条；414个手写框，至少22pt高，中文字体嵌入，完整条码全量出现，无A换B/串码打印文字。首末页实际渲染检查。
+- 实际停止并重启模拟服务，比较全部12表指纹，再打开浏览器验证实数、建议确认历史与历史PDF。
 
-## 重复执行
+## 复现
 
-1. 使用Python 3.11安装requirements-dev.txt；准备可嵌入中文字体。安装Node和Playwright，Windows用Edge；Linux CI使用Chromium及文泉驿。
-2. 运行python -m pytest tests -q、python tests/prepare_fifth_demo.py。
-3. 使用全新模拟目录，例如STOCKTAKE_DATA_DIR=tests/runtime/fifth_demo_data，启动python -m streamlit run app.py --server.address 127.0.0.1 --server.port 18545 --server.headless true。禁止8513或正式数据目录。
-4. 运行node tests/browser_fifth.mjs。可通过PLAYWRIGHT_MODULE指定已安装的Playwright模块；CI自动选择Chromium。
-5. 设置STOCKTAKE_FIFTH_DATA_DIR为相同模拟目录，运行python tests/verify_fifth_artifacts.py verify，独立读回审计Excel、公司XLS及历史PDF；pdf模式生成414条A4回归文件，用pdftoppm渲染视觉检查。
-6. 运行python tests/verify_fifth_artifacts.py before，真正停止并以同数据目录重启模拟服务；运行node tests/browser_fifth.mjs --reopen，再运行python tests/verify_fifth_artifacts.py after。
-7. 暂存后python scripts/check_public_tree.py扫描公开文件及全部可达Git历史。GitHub CI执行pytest、480条浏览器流程及导出文件独立读回；通过后再部署。
+安装`requirements-dev.txt`及Node Playwright1.62.1；Windows使用Edge，CI使用Chromium。中文字体参考README。
 
-旧第四次脚本留作Git历史复现参考，其中02专项入口和同供应商资格已被本次明确业务要求取代；当前浏览器入口为browser_fifth.mjs。旧数量金额、原始调整、季度汇报和03打印的回归仍在pytest中执行。
+```powershell
+$env:PYTHONPATH='.'
+$env:STOCKTAKE_DATA_DIR='tests/runtime/sixth_ci_data'
+$env:STOCKTAKE_SIXTH_DATA_DIR=$env:STOCKTAKE_DATA_DIR
+$env:STOCKTAKE_TEST_URL='http://127.0.0.1:18546'
+python -m pytest tests -q
+python tests/prepare_sixth_demo.py
+python -m streamlit run app.py --server.port 18546 --server.address 127.0.0.1 --server.headless true
+# 另一个窗口在相同模拟环境变量下运行：
+node tests/browser_sixth.mjs
+python tests/verify_sixth_artifacts.py verify
+python tests/verify_sixth_artifacts.py pdf
+python tests/verify_sixth_artifacts.py before
+# 停止并使用相同目录重新启动模拟服务后：
+python tests/verify_sixth_artifacts.py after
+node tests/browser_sixth.mjs --reopen
+```
 
-## 安全更新与回滚
+输出在忽略目录`tests/runtime/sixth_results`，含建议前/单方/双方确认截图、三分辨率第400条及弹窗、选区、全店XLS、专项Excel、历史PDF与A4页数报告。CI保存纯模拟验收附件14天，不上传SQLite或真实资料。旧第四/第五次脚本只是历史复现入口。
 
-正式升级前停机备份程序、供应商目录、环境标记及SQLite API一致性副本；保留原件和原PDF。仅部署当前提交运行文件，不替换data、真实vendors.json或虚拟环境。启动时自动新增exchange_products与exchange_history，结构版本14到15；启动后比较升级前全部8张业务表的原有行、原件和PDF字节。
+## 正式部署与数据保护
 
-回滚优先恢复原代码，保留新旧数据和新增资格表。不要为代码回滚直接覆盖旧库；若升级后有新录入、凭证或打印，必须保全后才能评估业务数据恢复。详细本机备份位置、部署文件哈希和逐表结果写入本机交付目录，不上传公开仓库。
+只有本地验证与当前提交GitHub CI全部通过后才部署。部署前再做一致性备份，逐表比较原10表全部记录并校验原件/PDF/供应商文件哈希，保留所有正式复盘。仅增加两张建议表；不得用500条模拟数据或37条母版覆盖真实记录。原件、供应商、打印、虚拟环境均不替换。具体备份路径、最终提交和部署后核对结果写入本机交付目录，避免将业务资料带入公开仓库。回滚详见[安全迁移](EXCHANGE_DATABASE.md)。

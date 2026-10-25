@@ -68,7 +68,7 @@ def test_audit_amounts_schema_and_manual_evidence(store,fourth):
     before=financial_panel(items,meta);m=audit_model(items,vs,meta);assert m['stats']['商品总条数']==60 and m['stats']['供货商待确认']==25
     assert m['stats']['已复盘']==0 and m['stats']['未复盘']==60 and m['stats']['疑似A换B对数']==900
     assert m['stats']['净差异']==sum((x['差异成本'] for x in m['rows'] if x['_status']=='zbf'),0)
-    rows=filtered_rows(m);blob=audit_excel(m,rows);w=openpyxl.load_workbook(io.BytesIO(blob),data_only=False);s=w['可A换B商品专项审计']
+    rows=filtered_rows(m);blob=audit_excel(m,rows);w=openpyxl.load_workbook(io.BytesIO(blob),data_only=False);s=w['卓不凡A换B专项核对']
     assert tuple(c.value for c in s[1])==HEADERS and s.max_column==16 and s.max_row==61
     assert all(s.cell(r,4).data_type=='s' and s.cell(r,4).value.startswith('099') for r in range(2,62))
     assert len(filtered_rows(m,'归属待确认'))==25 and len(filtered_rows(m,include_pending=True))==85

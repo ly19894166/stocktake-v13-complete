@@ -28,12 +28,12 @@ def test_strict_both_ends_group_zero_and_mix_independence(fifth):
     a.update(大类='模拟同类',中类='模拟同细类',成本价=D('2'));b.update(大类='模拟同类',中类='模拟同细类',成本价=D('2'))
     e=CandidateEngine([a,b],vs);assert e.count(a['记录ID'])==1 and e.count(a['记录ID'],'swap')==0
     c=[catalog_record(a),catalog_record(b)];e=CandidateEngine([a,b],vs,exchange=c)
-    assert e.pair(a['记录ID'],b['记录ID'])['swap'] and e.pair(a['记录ID'],b['记录ID'])['mix']
+    assert not e.pair(a['记录ID'],b['记录ID'])['swap'] and e.pair(a['记录ID'],b['记录ID'])['mix']
     for replacement in [catalog_record(b,'SIM-G2'),catalog_record(b,是否启用=False),catalog_record(b,生效日期='2099-01-01'),catalog_record(b,商品编码='wrong')]:
         e=CandidateEngine([a,b],vs,exchange=[c[0],replacement]);assert not e.neighbors(a['记录ID'],'swap') and e.neighbors(a['记录ID'])
     original=copy.deepcopy([a,b]);a['复盘实数']=a['系统数']-a['原始调整']
     assert not CandidateEngine([a,b],vs,exchange=c).neighbors(b['记录ID'],'swap')
-    assert CandidateEngine(original,vs,exchange=c).count(b['记录ID'],'swap')==1
+    assert CandidateEngine(original,vs,exchange=c).count(b['记录ID'],'swap')==0
 
 def test_confirmed_zbf_only_same_supplier_and_no_cross_group(fifth):
     items,vs,*_=fifth;e=CandidateEngine(items,vs)
@@ -80,7 +80,7 @@ def test_migration_keeps_every_old_table_row(tmp_path,items):
     root=tmp_path/'migration';root.mkdir();db=sqlite3.connect(root/'stocktake.sqlite')
     db.executescript('CREATE TABLE preserved(id INTEGER PRIMARY KEY,value BLOB);INSERT INTO preserved VALUES(1,X\'000102\');PRAGMA user_version=14;');db.close()
     s=Store(root);assert s.db.execute('SELECT * FROM preserved').fetchall()==[(1,b'\0\1\2')]
-    assert s.db.execute('PRAGMA user_version').fetchone()[0]==15 and s.exchange_list()==[];s.close()
+    assert s.db.execute('PRAGMA user_version').fetchone()[0]==16 and s.exchange_list()==[];s.close()
 
 def test_full_legacy_eight_tables_migrate_without_rewrite(store,batch):
     from print_manager import generate_print
@@ -96,7 +96,7 @@ def test_full_legacy_eight_tables_migrate_without_rewrite(store,batch):
 def test_audit_scope_amounts_top_candidates_and_legacy_proofs(fifth):
     items,vs,*_=fifth;manual=[catalog_record(x,'SIM-G'+str(int(x['商品条码'][-4:])%2)) for x in items if 90<=int(x['商品条码'][-4:])<110]
     meta={'first_import_at':'2026-10-25','sales_cost':'10000000'};before=financial_panel(items,meta)
-    m=audit_model(items,vs,meta,manual);assert m['stats']['商品总条数']==80 and m['stats']['卓不凡商品']==60 and m['stats']['其他可换货商品']==20
+    m=audit_model(items,vs,meta,manual);assert m['stats']['商品总条数']==60 and m['stats']['卓不凡商品']==60 and m['stats']['其他可换货商品']==0
     assert all(len(ps)<=3 for ps in m['peers'].values())
     assert m['stats']['净差异']==sum((current_amount(x) for x in items if m['engine'].eligibility[x['记录ID']]['eligible']),D(0))
     a,b=next(iter(m['edges']));key='|'.join(sorted(str(m['byid'][k]['序号']) for k in (a,b)))
@@ -104,7 +104,7 @@ def test_audit_scope_amounts_top_candidates_and_legacy_proofs(fifth):
     m=audit_model(items,vs,meta,manual);row=next(r for r in m['rows'] if r['_id']==a)
     assert '模拟旧双方核查' in row['核查结论'] and '模拟旧专项说明' in row['核查结论'] and 'SIM-OLD' in row['凭证编号']
     w=openpyxl.load_workbook(io.BytesIO(audit_excel(m,filtered_rows(m))))
-    assert w['可A换B商品专项审计'].max_row==81 and w['A换B线索'].max_row==len(m['edges'])+1
+    assert w['卓不凡A换B专项核对'].max_row==61 and w['A换B线索'].max_row==len(m['edges'])+1
     assert financial_panel(items,meta)==before
 
 def test_amount_per_row_reuses_core_and_missing_cost(fifth):
@@ -117,9 +117,9 @@ def test_amount_per_row_reuses_core_and_missing_cost(fifth):
 def test_native_audit_only_in_01(store,batch,monkeypatch):
     from streamlit.testing.v1 import AppTest
     monkeypatch.setenv('STOCKTAKE_DATA_DIR',str(store.root));app=Path(__file__).resolve().parents[1]/'app.py'
-    at=AppTest.from_file(str(app),default_timeout=30).run();at.session_state['exchange_scope_'+batch]='eligible';at.run()
-    assert any(x.label=='可A换B商品专项审计' for x in at.expander)
-    at.session_state['navigation']='02 公司盘点结果导出';at.run();assert not at.exception
+    at=AppTest.from_file(str(app),default_timeout=30).run();at.session_state['exchange_scope_'+batch]='zbf';at.run()
+    assert any(x.label=='卓不凡A换B专项核对' for x in at.expander)
+    at.session_state['navigation']='03 现场复核单打印';at.run();assert not at.exception
     assert not any('专项审计' in x.label or '可换货' in x.label for x in at.expander)
 
 def test_native_single_and_pair_proof_callbacks_keep_distinct_keys(store,fifth,monkeypatch):
@@ -127,7 +127,7 @@ def test_native_single_and_pair_proof_callbacks_keep_distinct_keys(store,fifth,m
     items,vs,notes,fp=fifth;b=store.create(items,notes,fp)
     loaded,_,state,rev=store.load(b);state['vendors']=vs;store.save(b,loaded,state,rev)
     monkeypatch.setenv('STOCKTAKE_DATA_DIR',str(store.root));at=AppTest.from_file(str(Path(__file__).resolve().parents[1]/'app.py'),default_timeout=30).run()
-    at.session_state['exchange_scope_'+b]='eligible';at.run()
+    at.session_state['exchange_scope_'+b]='zbf';at.run()
     # 可展开区域需要真实打开，展开后两个表单同时存在，不能共享后定义的token。
     at.session_state['swap_audit_'+b]=True;at.run()
     next(x for x in at.text_area if x.label=='专项核查说明（人工）').set_value('模拟独立单商品说明')

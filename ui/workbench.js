@@ -12,28 +12,31 @@ export default function(component) {
   // 只缩短已有引擎的变化文字；数量、调整和金额继续使用后端V13结果。
   const shortChange=r=>r.recount===null?'':r.diff===0?'✓归零':r.change===0?'':(r.change>0?'↑':'↓')+r.change_label.split(' · ')[0].replace(/件/g,'').replace('盘亏增加','亏增').replace('盘盈减少','盈减').replace('盘盈增加','盈增').replace('盘亏减少','亏减');
   let S=root.__inventory;
-  if(S&&S.layoutVersion!==6){S.remember?.();S.observer?.disconnect();root.__inventory=null;S=null}
+  if(S&&S.layoutVersion!==7){S.remember?.();S.observer?.disconnect();root.__inventory=null;S=null}
   if(!S){
     let local={};try{local=JSON.parse(localStorage.getItem('stocktake:'+data.batch)||'{}')}catch{}
-    const migrated=local.flowVersion!==5;
-    S=root.__inventory={query:migrated?'':local.query||'',filters:migrated?[]:local.filters||[],category:migrated?'':local.category||'',supplier:migrated?'':local.supplier||'',sort:migrated?'sequence':local.sort||'sequence',scope:migrated?'exclude':local.scope||'exclude',columns:migrated?{}:local.columns||{},order:[],orderKey:'',loaded:200,editGeneration:0,copyIntent:null,drafts:local.drafts||{},queue:[],inflight:null,rows:new Map(),dom:new Map(),focus:null,seenAck:null,viewKey:'',rowSignatures:new Map(),restore:!!Object.keys(local.drafts||{}).length,metaDrafts:local.metaDrafts||{},timers:{},reportOpen:false,detailOpen:false};
-    S.layoutVersion=6;
+    const migrated=local.flowVersion!==6;
+    S=root.__inventory={query:migrated?'':local.query||'',filters:migrated?[]:local.filters||[],category:migrated?'':local.category||'',supplier:migrated?'':local.supplier||'',sort:migrated?'sequence':local.sort||'sequence',scope:migrated?'exclude':local.scope||'exclude',columns:migrated?{}:local.columns||{},order:[],orderKey:'',loaded:200,editGeneration:0,copyIntent:null,drafts:local.drafts||{},queue:[],inflight:null,rows:new Map(),dom:new Map(),focus:null,seenAck:null,viewKey:'',rowSignatures:new Map(),restore:!!Object.keys(local.drafts||{}).length,metaDrafts:local.metaDrafts||{},timers:{},reportOpen:false,detailOpen:false,exportOpen:false,exportIntent:null,exportSnapshot:null,selection:new Set(),selectionAnchor:null,dragSelection:null,balanceDrafts:{}};
+    S.layoutVersion=7;
     root.innerHTML=`<div class="operating-panel">
-      <div class="operating-inputs"><label>实际销售金额（元）<input data-meta="sales_amount" inputmode="decimal" aria-label="实际销售金额（元）" placeholder="待填写"></label><label>同期含税销售成本（元）<input data-meta="sales_cost" inputmode="decimal" aria-label="同期含税销售成本（元）" placeholder="待填写"></label><div class="calculation-status"></div><button class="report-open primary">生成盘点汇报</button></div>
-      <div class="audit muted">当前测算，仅供复盘；正式导出仍须在02完整检查。</div></div><div class="metrics summary-rail" data-testid="metrics" aria-label="整店统计，包含全批次商品"></div>
-      <div class="toolbar primary-tools"><select class="scope" aria-label="商品范围"><option value="exclude">不含卓不凡（默认）</option><option value="all">全部商品</option><option value="zbf">仅卓不凡</option><option value="eligible">全部可A换B商品</option></select><input class="search" aria-label="搜索商品名、编码、完整条码或尾号" placeholder="商品名称 / 编码 / 完整条码 / 尾号4–8位"><select class="category" aria-label="品类筛选"></select><select class="view" aria-label="找货查看方式"><option value="sequence">原始序号（默认）</option><option value="amount">差异金额优先</option><option value="pair">疑似串码联排</option><option value="category">按品类查找</option></select><button class="regroup" title="按最新数据更新排序">刷新排序</button><button class="undo">撤销上次输入</button><button class="bulk-toggle">批量粘贴</button><button class="clear">清除筛选</button><button class="more-toggle" aria-expanded="false">更多筛选</button></div>
+      <div class="operating-inputs"><label>实际销售金额（元）<input data-meta="sales_amount" inputmode="decimal" aria-label="实际销售金额（元）" placeholder="待填写"></label><label>同期含税销售成本（元）<input data-meta="sales_cost" inputmode="decimal" aria-label="同期含税销售成本（元）" placeholder="待填写"></label><div class="calculation-status"></div><button class="export-open primary">下载盘点结果 ▾</button><button class="report-open">生成盘点汇报</button></div>
+      <div class="audit muted">当前测算，仅供复盘；正式导出在顶部“下载盘点结果”中检查。</div></div><div class="metrics summary-rail" data-testid="metrics" aria-label="整店统计，包含全批次商品"></div>
+      <div class="toolbar primary-tools"><select class="scope" aria-label="商品范围"><option value="exclude">不含卓不凡（默认）</option><option value="all">全部商品</option><option value="zbf">仅卓不凡</option></select><input class="search" aria-label="搜索商品名、编码、完整条码或尾号" placeholder="商品名称 / 编码 / 完整条码 / 尾号4–8位"><select class="category" aria-label="品类筛选"></select><select class="view" aria-label="找货查看方式"><option value="sequence">原始序号（默认）</option><option value="amount">差异金额优先</option><option value="pair">疑似串码联排</option><option value="category">按品类查找</option></select><button class="regroup" title="按最新数据更新排序">刷新排序</button><button class="undo">撤销上次输入</button><button class="bulk-toggle">批量粘贴</button><button class="clear">清除筛选</button><button class="more-toggle" aria-expanded="false">更多筛选</button></div>
       <div class="more-filters hidden"><div class="toolbar"><select class="supplier" aria-label="供应商筛选"></select><select class="sort" aria-label="建议排序"><option value="sequence">原始序号（默认）</option><option value="pair">疑似串码联排</option><option value="amount">差异金额优先</option><option value="quantity">数量优先</option><option value="category">按品类查找</option><option value="score">综合建议分</option></select><button class="refresh">刷新数据</button></div><div class="chips"></div><span class="muted">组合筛选同时满足；只改变显示顺序，不改变记录、实数和导出顺序。</span></div>
       <select class="locate hidden" aria-label="条码尾号匹配结果"></select><div class="message"></div>
       <div class="bulk hidden"><strong>批量粘贴复盘数</strong><p class="muted">每行：完整条码 Tab 复盘实数 Tab 人工备注 Tab 单位说明（后两项可省略）。全部校验通过后一次保存。</p><textarea aria-label="批量粘贴复盘数据"></textarea><button class="primary bulk-submit">校验并保存全部粘贴行</button></div>
       <div class="guide"><span class="result-count"></span><span class="saved" data-testid="save-status"></span></div>
+      <section class="balance-section hidden" aria-label="卓不凡A换B专项核对"></section>
       <div class="table-wrap"><table aria-label="01现场复盘表"><colgroup>${['seq','category','product','barcode','code','system','initial','recount','total','difference','amount','note','supplier','hints'].map(c=>`<col class="col-${c}">`).join('')}</colgroup><thead><tr><th><button class="header-filter" data-column="sequence" aria-label="筛选序号">序号 ▾</button></th><th><button class="header-filter" data-column="category" aria-label="筛选品类">品类 ▾</button></th><th><button class="header-filter" data-column="name" aria-label="筛选商品名称">商品名称 ▾</button></th><th><button class="header-filter" data-column="barcode" aria-label="筛选商品条码">商品条码 ▾</button></th><th class="col-code"><button class="header-filter" data-column="code" aria-label="筛选商品编码">商品编码 ▾</button></th><th><button class="header-filter" data-column="system" aria-label="筛选系统数">系统数 ▾</button></th><th><button class="header-filter" data-column="initial" aria-label="筛选初盘数">初盘数 ▾</button></th><th><button class="header-filter" data-column="recount" aria-label="筛选复盘实数">复盘实数 ▾</button></th><th><button class="header-filter" data-column="total" aria-label="筛选当前实物总数">当前实物总数 ▾</button></th><th><button class="header-filter" data-column="diff" aria-label="筛选最新差异">最新差异 ▾</button></th><th><button class="header-filter" data-column="amount" aria-label="筛选差异金额（元）">差异金额（元） ▾</button></th><th><button class="header-filter" data-column="note" aria-label="筛选备注／原因">备注／原因 ▾</button></th><th class="col-supplier"><button class="header-filter" data-column="supplier" aria-label="筛选供货商">供货商 ▾</button></th><th><button class="header-filter" data-column="hints" aria-label="筛选核查标签">核查标签 ▾</button></th></tr></thead><tbody></tbody></table></div>
       <div class="load-sentinel" aria-label="连续浏览加载位置"></div><div class="scroll-status muted"></div>
+      <div class="selection-status" role="status" aria-label="单元格计数与求和"><span class="selection-text">选中：0格　数值计数：0　求和：—</span><button class="selection-clear">清除选择</button></div>
+      <dialog class="export-dialog" aria-label="下载盘点结果"><div class="panel-title"><strong>下载盘点结果 · 全店三列</strong><button class="export-close">关闭</button></div><p class="export-status" aria-live="polite"></p><div class="export-info"></div><details class="export-check-details"><summary>完整性核查与剩余问题</summary><label><input type="checkbox" class="export-coverage">确认同门店、同期间且覆盖本次完整盘点范围</label><label><input type="checkbox" class="export-evidence">确认差异已核实、相关凭证齐备</label><button class="export-check-save">保存导出核查</button><div class="export-blockers"></div></details><details class="export-preview"><summary>公司三列文件预览（全店）</summary><div class="export-preview-table"></div></details><div class="toolbar"><button class="export-download primary" disabled>下载公司盘点表.xls</button><span class="muted">每次下载先保存输入并重新读取全店；不使用筛选结果或未确认建议。</span></div></dialog>
       <dialog class="filter-dialog" aria-label="列筛选面板"></dialog><dialog class="panel" aria-label="商品详情与对应候选"></dialog>
       <dialog class="note-dialog" aria-label="展开编辑人工备注"><div class="panel-title"><strong>人工备注／原因</strong><button class="note-close">保存并收起</button></div><textarea class="note-editor" aria-label="完整人工备注"></textarea><p class="muted">自动保存。系统线索不会覆盖人工备注。</p></dialog>
       <dialog class="calculation-dialog" aria-label="V13差异计算依据"><div class="panel-title"><strong>V13差异计算依据</strong><button class="calculation-close">关闭</button></div><div class="calculation-body"></div></dialog>
       <dialog class="report-dialog" aria-label="季度盘点汇报"><div class="panel-title"><strong>季度盘点汇报</strong><button class="report-close">关闭</button></div><div class="report-fields"></div><p class="report-warnings muted"></p><label class="report-label">最终文稿（可直接编辑，自动保存）<textarea class="report-text" aria-label="最终盘点汇报文稿"></textarea></label><div class="toolbar"><button class="report-copy primary">一键复制文稿</button><button class="report-reset">按最新数据重新生成</button><button class="report-old hidden">查看上次人工稿</button><span class="copy-status" aria-live="polite"></span></div></dialog>`;
     const q=s=>root.querySelector(s);
-    const remember=()=>{try{localStorage.setItem('stocktake:'+S.data.batch,JSON.stringify({query:S.query,filters:S.filters,category:S.category,supplier:S.supplier,sort:S.sort,scope:S.scope,columns:S.columns,flowVersion:5,drafts:S.drafts,metaDrafts:S.metaDrafts}))}catch{}};
+    const remember=()=>{try{localStorage.setItem('stocktake:'+S.data.batch,JSON.stringify({query:S.query,filters:S.filters,category:S.category,supplier:S.supplier,sort:S.sort,scope:S.scope,columns:S.columns,flowVersion:6,drafts:S.drafts,metaDrafts:S.metaDrafts}))}catch{}};
     S.remember=remember;
     S.enqueue=(kind,extra={})=>{const event={kind,...extra,request_id:crypto.randomUUID()};S.queue.push(event);S.pump();return event.request_id};
     S.pump=()=>{if(S.inflight||!S.queue.length)return;let event=S.queue.shift();if(event.kind==='edit'){
@@ -51,7 +54,7 @@ export default function(component) {
     for(const input of q('.report-fields').querySelectorAll('[data-report]'))S.bindMeta(input,'report.'+input.dataset.report);
     S.bindMeta(q('.report-text'),'report.draft');
     S.flush=()=>{for(const [id,fields] of Object.entries(S.drafts))for(const field of Object.keys(fields))S.commit(id,field);for(const key of Object.keys(S.metaDrafts))S.commitMeta(key)};
-    S.editCell=(id,field,value)=>{S.editGeneration++;const prior=S.drafts[id]?.[field];S.drafts[id]??={};S.drafts[id][field]={value,base:prior?prior.base:(field==='复盘实数'?S.rows.get(id).recount:S.rows.get(id).note)};q('.saved').textContent='正在自动保存输入…';remember();const key=id+'|'+field;clearTimeout(S.timers[key]);S.timers[key]=setTimeout(()=>S.commit(id,field),650)};
+    S.editCell=(id,field,value)=>{S.editGeneration++;const prior=S.drafts[id]?.[field];S.drafts[id]??={};S.drafts[id][field]={value,base:prior?prior.base:(field==='复盘实数'?S.rows.get(id).recount:S.rows.get(id).note)};q('.saved').textContent='正在自动保存输入…';remember();S.renderSelection();const key=id+'|'+field;clearTimeout(S.timers[key]);S.timers[key]=setTimeout(()=>S.commit(id,field),650)};
     S.openNote=id=>{const dialog=q('.note-dialog'),editor=q('.note-editor');S.noteID=id;editor.value=S.drafts[id]?.备注?.value??S.rows.get(id).note;editor.oninput=()=>S.editCell(id,'备注',editor.value);dialog.showModal();editor.focus()};
     const closeNote=()=>{S.commit(S.noteID,'备注');q('.note-dialog').close();S.dom.get(S.noteID)?.querySelector('.edit-note').focus({preventScroll:true})};
     q('.note-close').onclick=closeNote;q('.note-dialog').oncancel=e=>{e.preventDefault();closeNote()};
@@ -132,8 +135,86 @@ export default function(component) {
     S.requestVisible=()=>{if(S.inflight||S.queue.some(e=>e.kind==='view'))return;const ids=S.visible.filter(r=>{const el=S.dom.get(r.id);if(!el)return false;const box=el.getBoundingClientRect();return box.bottom>-500&&box.top<innerHeight+800}).map(r=>r.id).filter(id=>!S.data.enriched.includes(id)).slice(0,150);if(ids.length)S.enqueue('view',{ids})};
     S.onScroll=()=>{if(!root.isConnected)return;clearTimeout(S.scrollTimer);S.scrollTimer=setTimeout(S.requestVisible,160)};
     S.observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)&&S.loaded<S.filteredCount){S.loaded+=200;S.render()}},{rootMargin:'900px'});
+    // 导出屏障：先提交实数/备注/经营草稿，等待逐次确认，再读全批次最新版本。
+    S.abortExport=message=>{S.exportIntent=null;S.exportSnapshot=null;q('.export-status').textContent=message;q('.export-download').disabled=true};
+    S.requestExport=purpose=>{
+      if(S.exportIntent)return;
+      S.exportOpen=true;S.exportSnapshot=null;S.flush();
+      const intent={id:crypto.randomUUID(),purpose,generation:S.editGeneration};S.exportIntent=intent;
+      const extra=purpose==='checks'?{coverage:q('.export-coverage').checked,evidence:q('.export-evidence').checked}:{};
+      S.queue.push({kind:purpose==='checks'?'export_checks':'export_snapshot',...extra,request_id:intent.id});
+      q('.export-status').textContent='正在提交输入并核对全店最新版本，尚未生成文件…';q('.export-download').disabled=true;S.pump();S.renderExport();
+    };
+    S.finishExport=(snapshot,intent)=>{
+      if(S.exportIntent!==intent)return;
+      if(!S.exportOpen||intent.generation!==S.editGeneration||Object.keys(S.drafts).length||Object.keys(S.metaDrafts).length||S.queue.some(e=>e.kind!=='view')||!snapshot||snapshot.id!==intent.id||snapshot.batch!==S.data.batch||snapshot.revision!==S.data.revision||snapshot.signature!==S.data.export_signature){S.abortExport('数据仍在变化或未保存，未下载旧文件；请核对并重试');return}
+      S.exportIntent=null;S.exportSnapshot=snapshot;S.exportRendered=null;S.renderExport();
+      if(intent.purpose==='download'){
+        if(!snapshot.xls){q('.export-status').textContent='正式导出被阻断，请完成剩余问题；未下载文件';return}
+        const bytes=Uint8Array.from(atob(snapshot.xls),c=>c.charCodeAt(0)),url=URL.createObjectURL(new Blob([bytes],{type:'application/vnd.ms-excel'}));const a=document.createElement('a');a.href=url;a.download='公司盘点表.xls';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);q('.export-status').textContent=`已按全店最新已保存版本 ${snapshot.revision} 生成公司三列文件`;
+      }
+    };
+    S.renderExport=()=>{
+      const dialog=q('.export-dialog');if(!S.exportOpen){if(dialog.open)dialog.close();return}if(!dialog.open)dialog.showModal();
+      const snapshot=S.exportSnapshot;if(!snapshot)return;
+      if(S.exportRendered!==snapshot.id){S.exportRendered=snapshot.id;
+        q('.export-info').textContent=`当前批次：${snapshot.store} · ${snapshot.period} · ${snapshot.batch}｜全店${snapshot.count}条 · 已复盘${snapshot.done} / 待复盘${snapshot.remaining}｜数据检查${snapshot.errors.length}项 · 已保存版本${snapshot.revision}`;
+        q('.export-status').textContent=snapshot.blockers.length?`核对草稿 · ${snapshot.blockers.length}项条件待完成`:'正式候选 · 当前本机检查通过，公司上传与审批仍由人工完成';
+        q('.export-coverage').checked=snapshot.coverage;q('.export-evidence').checked=snapshot.evidence;
+        q('.export-blockers').innerHTML=snapshot.blockers.length?'<ul>'+snapshot.blockers.map(b=>`<li>${esc(b)}</li>`).join('')+'</ul>':'<p>原有完整性及正式导出检查通过。</p>';
+        q('.export-preview-table').innerHTML='<table><thead><tr>'+snapshot.headers.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr></thead><tbody>'+snapshot.rows.map(row=>'<tr>'+row.map(v=>`<td>${esc(v??'待核实')}</td>`).join('')+'</tr>').join('')+'</tbody></table>';
+      }
+      q('.export-download').disabled=!!S.exportIntent||!snapshot.xls;
+    };
+    q('.export-open').onpointerdown=()=>{const el=root.getRootNode().activeElement,tr=el?.closest?.('.table-wrap tbody tr');S.exportReturnFocus=el;S.exportReturnScroll=S.scrollParent().scrollTop;S.exportAnchor=tr?{id:tr.dataset.id,index:[...q('.table-wrap tbody').children].indexOf(tr)}:null};
+    q('.export-open').onclick=()=>{if(!S.exportReturnFocus){S.exportReturnFocus=root.getRootNode().activeElement;S.exportReturnScroll=S.scrollParent().scrollTop}S.requestExport('open')};
+    S.closeExport=()=>{S.exportOpen=false;S.exportIntent=null;q('.export-dialog').close();S.exportReturnFocus?.focus?.({preventScroll:true});S.scrollParent().scrollTop=S.exportReturnScroll??S.scrollParent().scrollTop;S.exportAnchor=null;S.exportReturnFocus=null};
+    q('.export-close').onclick=S.closeExport;q('.export-dialog').oncancel=e=>{e.preventDefault();S.closeExport()};q('.export-download').onclick=()=>S.requestExport('download');q('.export-check-save').onclick=()=>S.requestExport('checks');
+
+    const statFields=['system','initial','recount','total','diff','amount'];
+    S.renderSelection=()=>{
+      const visible=new Set(S.visible?.map(r=>r.id)||[]);S.selection=new Set([...S.selection].filter(k=>{try{return visible.has(JSON.parse(k)[0])}catch{return false}}));
+      root.querySelectorAll('.table-wrap tbody [data-stat-field]').forEach(td=>td.classList.toggle('cell-selected',S.selection.has(cellKey(td.closest('tr').dataset.id,td.dataset.statField))));
+      const stats=selectionStats(S.rows,S.selection,S.drafts),sums=stats.groups.map(g=>`${g.money?'金额':'数量（'+g.unit+'）'}：${g.sum}${g.money?'元':''}`);
+      q('.selection-text').textContent=`选中：${stats.selected}格　数值计数：${stats.numeric}　${sums.length?sums.join(' ｜ '):'求和：—'}${sums.length>1?'（不同单位分开统计）':''}${Object.keys(S.drafts).length?' · 含未保存输入':''}`;
+    };
+    S.rangeSelection=(anchor,end,base=[])=>{
+      const ids=S.visible.map(r=>r.id),a=ids.indexOf(anchor.id),b=ids.indexOf(end.id),c=statFields.indexOf(anchor.field),d=statFields.indexOf(end.field);if(Math.min(a,b,c,d)<0)return;
+      S.selection=new Set(base);for(let i=Math.min(a,b);i<=Math.max(a,b);i++)for(let j=Math.min(c,d);j<=Math.max(c,d);j++)S.selection.add(cellKey(ids[i],statFields[j]));S.renderSelection();
+    };
+    q('.table-wrap').onpointerdown=e=>{
+      if(e.button!==0)return;const td=e.target.closest('[data-stat-field]');if(!td||!td.closest('tbody'))return;
+      const end={id:td.closest('tr').dataset.id,field:td.dataset.statField},key=cellKey(end.id,end.field),add=e.ctrlKey||e.metaKey,base=add?[...S.selection]:[];
+      if(e.shiftKey&&S.selectionAnchor){S.rangeSelection(S.selectionAnchor,end,base);e.preventDefault();return}
+      S.selection=add?new Set(S.selection):new Set();if(add&&S.selection.has(key))S.selection.delete(key);else S.selection.add(key);
+      S.selectionAnchor=end;S.dragSelection={anchor:end,base,last:key};S.renderSelection();if(add||e.target.tagName!=='INPUT')e.preventDefault();
+    };
+    q('.table-wrap').onpointerover=e=>{
+      if(!S.dragSelection||e.buttons!==1)return;const td=e.target.closest('[data-stat-field]');if(!td||!td.closest('tbody'))return;
+      const end={id:td.closest('tr').dataset.id,field:td.dataset.statField},key=cellKey(end.id,end.field);if(key===S.dragSelection.last)return;
+      S.dragSelection.last=key;S.rangeSelection(S.dragSelection.anchor,end,S.dragSelection.base);root.getRootNode().getSelection?.()?.removeAllRanges();
+    };
+    S.onPointerUp=()=>{S.dragSelection=null};q('.selection-clear').onclick=()=>{S.selection.clear();S.selectionAnchor=null;S.renderSelection()};
+
+    S.renderBalance=()=>{
+      const section=q('.balance-section');section.classList.toggle('hidden',S.scope!=='zbf');if(S.scope!=='zbf')return;
+      const b=S.data.balance;if(!b){section.textContent='正在按已确认卓不凡目录分析建议…';return}
+      const signature=JSON.stringify([b.id,b.version,b.stale,S.data.revision]);if(S.balanceRendered===signature)return;S.balanceRendered=signature;
+      const entries=Object.values(b.plan.rows),pending=entries.filter(r=>r.stage==='pending'),done=entries.filter(r=>['confirmed','manual'].includes(r.stage)),unmatched=entries.filter(r=>['unmatched','rejected'].includes(r.stage)),display=entries.filter(r=>['pending','confirmed','rejected'].includes(r.stage));
+      section.innerHTML=`<div class="balance-heading"><strong>卓不凡A换B专项核对</strong><button class="balance-generate">重新计算未确认建议</button><span>待复核 ${pending.length}条　已确认 ${done.length}条　无法匹配 ${unmatched.length}条</span></div><p class="muted">${b.stale?'数据或供应商目录已变化，原建议不可确认，请重新计算。':'已自动分析。浅黄色为独立建议草稿，确认前不进入整店盈亏、导出或打印完成状态。'} 来源版本${b.source_revision} / 当前版本${b.revision}</p><table class="balance-table"><thead><tr>${['商品名称','系统数','初盘数','原差异','建议复盘数','可解释换货数','对应商品','核对操作与说明'].map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody></tbody></table><details><summary>无法匹配/需重新核对 ${unmatched.length}条 · 查看原因</summary><ul>${unmatched.map(r=>`<li>${esc(S.rows.get(r.id)?.name)}：${esc(r.reason)}</li>`).join('')}</ul></details><div class="balance-relations">${b.plan.relations.map(r=>`<span>${esc(S.rows.get(r.a)?.name)} ↔ ${esc(S.rows.get(r.b)?.name)}：${b.stale?'旧关系已过期':({pending:'双方均待现场确认',partial:'仅单方已确认，另一端待核对',verified:'双方已确认且数量守恒，关系已核实',mismatch:'数量或方向不一致，仍待核对',rejected:'已驳回，待重新核对'}[r.status]||'待核对')}</span>`).join('')}</div><details><summary>建议、驳回与逐条确认历史</summary>${(b.history||[]).map(h=>`<p>${esc(h.at)} · ${esc({generate:'重新生成',draft:'保存建议草稿',confirm:'现场确认',reject:'驳回'}[h.kind]||h.kind)} · ${esc(S.rows.get(h.item)?.name||'本批次')} ${h.kind==='confirm'?esc('原实盘 '+(h.old??'空白')+' → '+h.new):''} ${esc(h.note)}</p>`).join('')}</details>`;
+      section.querySelector('.balance-generate').onclick=()=>{if(S.inflight)return;S.flush();S.enqueue('balance_generate')};
+      const body=section.querySelector('tbody');for(const entry of display){const r=S.rows.get(entry.id),peer=S.rows.get(entry.peer),token=b.id+'|'+entry.id,draft=S.balanceDrafts[token]||{value:entry.draft??'',note:entry.note||''};S.balanceDrafts[token]=draft;const tr=document.createElement('tr');tr.dataset.balanceId=entry.id;
+        tr.innerHTML=`<td><b>${esc(r.name)}</b></td><td class="num">${esc(fmt(r.system))}</td><td class="num">${esc(fmt(r.initial))}</td><td class="num ${cls(Number(entry.base_diff))}">${esc(entry.base_diff)}</td><td><input class="balance-value" aria-label="建议复盘数 ${esc(r.barcode)}" value="${esc(draft.value)}" inputmode="decimal" ${b.stale||entry.stage!=='pending'?'disabled':''}></td><td class="num">${esc(entry.q)}</td><td><button class="balance-peer">${esc(peer?.name||'待确认')}</button></td><td>${entry.stage==='pending'?`<input class="balance-note" aria-label="现场核查说明 ${esc(r.barcode)}" placeholder="现场核查说明" value="${esc(draft.note)}"><button class="balance-confirm primary">确认本条实盘</button><button class="balance-save">保存建议草稿</button><button class="balance-reject">驳回/重新核对</button>`:`<span>${entry.stage==='confirmed'?'本条实盘已确认':'已驳回'}</span>`}</td>`;
+        tr.querySelector('.balance-peer').onclick=()=>S.openDetail(entry.id,entry.peer);
+        const value=tr.querySelector('.balance-value');value.oninput=()=>draft.value=value.value;
+        if(entry.stage==='pending'){const note=tr.querySelector('.balance-note');note.oninput=()=>draft.note=note.value;
+          for(const [selector,kind] of [['.balance-confirm','balance_confirm'],['.balance-save','balance_draft'],['.balance-reject','balance_reject']]){const button=tr.querySelector(selector);button.disabled=b.stale;button.onclick=()=>{if(S.inflight)return;S.flush();S.enqueue(kind,{run:b.id,version:b.version,id:entry.id,value:value.value,note:note.value});button.disabled=true}}}
+        body.appendChild(tr);
+      }
+    };
+
     S.render=()=>{
-      const pinEditing=!S.filterChanged;S.filterChanged=false;const d=S.data,stats=d.stats;const tbody=q('tbody'),scroller=S.scrollParent();const active=root.getRootNode().activeElement;const anchor=[...tbody.children].find(el=>el.getBoundingClientRect().bottom>90);const anchorTop=anchor?.getBoundingClientRect().top;const priorScroll=scroller.scrollTop;
+      const pinEditing=!S.filterChanged;S.filterChanged=false;const d=S.data,stats=d.stats;const tbody=q('.table-wrap tbody'),scroller=S.scrollParent();const active=root.getRootNode().activeElement;const anchor=[...tbody.children].find(el=>el.getBoundingClientRect().bottom>90);const anchorTop=anchor?.getBoundingClientRect().top;const priorScroll=scroller.scrollTop;
       q('.regroup').textContent=S.sort==='pair'?'重新联排':'刷新排序';q('.regroup').title='按最新数据更新排列；保存时保留行位置，避免打断输入';
       const p=d.panel;
       for(const input of root.querySelectorAll('[data-meta]')){const value=S.metaDrafts[input.dataset.meta]?.value??d.finance[input.dataset.meta]??'';if(parentElement.activeElement!==input&&input.value!==String(value))input.value=String(value)}
@@ -158,25 +239,26 @@ export default function(component) {
       if(editing&&S.rows.has(editing.dataset.id)&&!ids.includes(editing.dataset.id)){
         const oldAt=[...tbody.children].indexOf(editing);ids.splice(Math.min(Math.max(0,oldAt),ids.length),0,editing.dataset.id);
       }
+      if(S.exportOpen&&S.exportAnchor&&S.rows.has(S.exportAnchor.id)&&!ids.includes(S.exportAnchor.id))ids.splice(Math.min(S.exportAnchor.index,ids.length),0,S.exportAnchor.id);
       if(S.focus&&S.rows.has(S.focus)&&!ids.includes(S.focus)){const at=S.locateFrom?ids.indexOf(S.locateFrom):-1;ids.splice(at>=0?at+1:0,0,S.focus)}
       if(S.focus){const at=ids.indexOf(S.focus);if(at>=S.loaded)S.loaded=at+1}
       S.filteredCount=ids.length;const visible=ids.slice(0,S.loaded).map(id=>S.rows.get(id));S.visible=visible;
       const positions=new Map(visible.map((r,i)=>[r.id,i]));
       const locate=q('.locate');if(/^\d{4,8}$/.test(S.query)&&rows.length>1){locate.classList.remove('hidden');locate.innerHTML='<option value="">尾号对应多个商品，请选择完整条码定位</option>'+rows.map(r=>`<option value="${esc(r.id)}">${esc(r.name+' / '+r.barcode)}</option>`).join('')}else locate.classList.add('hidden');
-      const sums=rows.reduce((a,r)=>{if(r.amount===null)a.missing++;else if(r.amount<0)a.loss+=r.amount;else a.gain+=r.amount;return a},{gain:0,loss:0,missing:0});const scopeNames={exclude:'不含卓不凡（待确认保留）',all:'全部商品',zbf:'仅卓不凡',eligible:'全部可A换B商品'};const conditions=[scopeNames[S.scope],S.query?'搜索:'+S.query:'',S.category?'品类:'+S.category:'',S.supplier?'供应商:'+S.supplier:'',...S.filters,...Object.entries(S.columns).filter(([,v])=>Object.keys(v).length).map(([k,v])=>columns[k]+':'+Object.entries(v).map(([a,b])=>({mode:'状态：',text:'包含：',min:'≥',max:'≤',value:'选择：'}[a]||a)+({loss:'盘亏',gain:'盘盈',zero:'归零',nonzero:'仍有差异',unreviewed:'未复盘',reviewed:'已复盘',missing:'缺成本／待核实',blank:'空白',filled:'已填写',yes:'有备注',no:'无备注',mix:'疑似串码',eligible:'允许A换B',swap:'有A换B线索',pending:'待确认'}[b]??b)).join('/'))].filter(Boolean);q('.result-count').textContent=`${conditions.join(' · ')}｜当前筛选 ${found}/${S.rows.size}条 · 小计：盈${fmt(sums.gain,2)} / 亏${fmt(sums.loss,2)} / 净${fmt(sums.gain+sums.loss,2)}元${sums.missing?' · '+sums.missing+'条金额待核实':''}（仅找差异，整店统计不变）`;q('.category').value=S.category;q('.supplier').value=S.supplier;root.querySelectorAll('.header-filter').forEach(b=>b.classList.toggle('active',!!Object.keys(S.columns[b.dataset.column]||{}).length||(b.dataset.column==='category'&&!!S.category)||(b.dataset.column==='supplier'&&!!S.supplier)));
+      const sums=rangeTotals(rows);const scopeNames={exclude:'不含卓不凡（待确认保留）',all:'全部商品',zbf:'仅卓不凡'};const conditions=[scopeNames[S.scope],S.query?'搜索:'+S.query:'',S.category?'品类:'+S.category:'',S.supplier?'供应商:'+S.supplier:'',...S.filters,...Object.entries(S.columns).filter(([,v])=>Object.keys(v).length).map(([k,v])=>columns[k]+':'+Object.entries(v).map(([a,b])=>({mode:'状态：',text:'包含：',min:'≥',max:'≤',value:'选择：'}[a]||a)+({loss:'盘亏',gain:'盘盈',zero:'归零',nonzero:'仍有差异',unreviewed:'未复盘',reviewed:'已复盘',missing:'缺成本／待核实',blank:'空白',filled:'已填写',yes:'有备注',no:'无备注',mix:'疑似串码',eligible:'允许A换B',swap:'有A换B线索',pending:'待确认'}[b]??b)).join('/'))].filter(Boolean);q('.result-count').textContent=`${conditions.join(' · ')}｜当前显示${found}条 / 全店${S.rows.size}条 · 筛选范围：盘盈${sums.gain}元　盘亏${sums.loss}元　净差异${sums.net}元${sums.missing?' · '+sums.missing+'条金额待核实':''}（仅找差异，整店统计不变）`;q('.category').value=S.category;q('.supplier').value=S.supplier;root.querySelectorAll('.header-filter').forEach(b=>b.classList.toggle('active',!!Object.keys(S.columns[b.dataset.column]||{}).length||(b.dataset.column==='category'&&!!S.category)||(b.dataset.column==='supplier'&&!!S.supplier)));
       q('.scroll-status').textContent=`已显示 ${visible.length} / ${ids.length} 条 · ${visible.length<ids.length?'继续向下自动加载':'可连续滚轮浏览，无需翻页'}`;
       q('.saved').textContent=S.inflight?'保存 / 载入中…':Object.keys(S.metaDrafts).length||Object.keys(S.drafts).length?'有未确认草稿':`已保存 · ${d.saved_at||d.imported_at} · 版本 ${d.revision}`;
       const keep=new Set(visible.map(r=>r.id));
       for(const tr of [...tbody.children])if(!keep.has(tr.dataset.id))tr.remove();
       for(let i=0;i<visible.length;i++){
         const r=visible[i];let tr=S.dom.get(r.id);
-        if(!tr){tr=document.createElement('tr');tr.dataset.id=r.id;tr.innerHTML='<td class="seq num"></td><td class="category-cell"></td><td class="product"></td><td class="barcode"></td><td class="code col-code"></td><td class="system num"></td><td class="initial num"></td><td><input class="edit-count" inputmode="decimal"></td><td class="total num"></td><td class="difference num"></td><td class="amount num"></td><td class="note-cell"><div class="note-inline"><input class="edit-note" type="text"><button class="note-expand" title="展开编辑完整备注" aria-label="展开备注">↗</button></div></td><td class="supplier-cell col-supplier"></td><td class="hints"></td>';S.dom.set(r.id,tr);
+        if(!tr){tr=document.createElement('tr');tr.dataset.id=r.id;tr.innerHTML='<td class="seq num"></td><td class="category-cell"></td><td class="product"></td><td class="barcode"></td><td class="code col-code"></td><td class="system num" data-stat-field="system"></td><td class="initial num" data-stat-field="initial"></td><td data-stat-field="recount"><input class="edit-count" inputmode="decimal"></td><td class="total num" data-stat-field="total"></td><td class="difference num" data-stat-field="diff"></td><td class="amount num" data-stat-field="amount"></td><td class="note-cell"><div class="note-inline"><input class="edit-note" type="text"><button class="note-expand" title="展开编辑完整备注" aria-label="展开备注">↗</button></div></td><td class="supplier-cell col-supplier"></td><td class="hints"></td>';S.dom.set(r.id,tr);
           tr.querySelector('.note-expand').onclick=()=>S.openNote(r.id);tr.querySelector('.edit-note').ondblclick=()=>S.openNote(r.id);
           for(const [field,selector] of [['复盘实数','.edit-count'],['备注','.edit-note']]){
             const input=tr.querySelector(selector);input.dataset.field=field;input.setAttribute('aria-label',`${field} ${r.barcode}`);
             input.oninput=()=>S.editCell(r.id,field,input.value);
             input.onblur=()=>{S.commit(r.id,field);queueMicrotask(()=>{if(!root.getRootNode().activeElement?.closest?.('tr'))S.render()})};
-            input.onfocus=()=>{const box=input.getBoundingClientRect(),head=q('thead').getBoundingClientRect();if(box.top<head.bottom)S.scrollParent().scrollTop+=box.top-head.bottom-6};
+            input.onfocus=()=>{const box=input.getBoundingClientRect(),head=q('.table-wrap thead').getBoundingClientRect();if(box.top<head.bottom)S.scrollParent().scrollTop+=box.top-head.bottom-6};
             input.onkeydown=e=>{if(e.key==='F2'&&field==='备注'){e.preventDefault();S.openNote(r.id)}if(e.key==='Enter'&&(field==='复盘实数'||!e.shiftKey)){e.preventDefault();S.commit(r.id,field);const idx=S.visible.findIndex(x=>x.id===r.id);const next=S.dom.get(S.visible[idx+1]?.id)?.querySelector(selector);if(next)next.focus()}};
           }
         }
@@ -190,7 +272,7 @@ export default function(component) {
           tr.querySelector('.row-link').onclick=()=>S.openDetail(r.id,null);
           const basis=`初盘差异 ${fmt(r.initial_diff)}；原始调整 ${fmt(r.adjustment)}；变化 ${fmt(r.change)}；${r.change_label}；差异成本 ${fmt(r.amount,2)}元。点击查看V13计算依据。`;
           tr.querySelector('.difference').innerHTML=`<button class="difference-details ${cls(r.diff)}" title="${esc(basis)}"><strong>${r.diff>0?'+':''}${esc(fmt(r.diff))}</strong><span class="change">${esc(shortChange(r))}</span></button>`;
-          tr.querySelector('.difference-details').onclick=()=>S.openCalculation(r.id);const money=tr.querySelector('.amount');money.className='amount num '+(r.amount===null?'missing-amount':cls(r.amount));money.textContent=r.amount===null?'缺成本／待核实':(r.amount>0?'+':'')+fmt(r.amount,2);money.title='复用V13 current_amount：最新差异×成本，逐商品两位小数';
+          tr.querySelector('.difference-details').onclick=e=>e.preventDefault();tr.querySelector('.difference-details').ondblclick=()=>S.openCalculation(r.id);const money=tr.querySelector('.amount');money.className='amount num '+(r.amount===null?'missing-amount':cls(r.amount));money.textContent=r.amount===null?'缺成本／待核实':(r.amount>0?'+':'')+fmt(r.amount,2);money.title='复用V13 current_amount：最新差异×成本，逐商品两位小数';
           const hints=tr.querySelector('.hints');const peer=(paired?r.partner_peer:null)||r.peers?.[0];
           hints.innerHTML='<div class="hint-inline">'+(peer?`<button class="peer-live" data-other="${esc(peer.id)}" title="${esc(peer.name+' / '+peer.barcode+'；对方差异 '+fmt(peer.diff)+'；疑似待核实，点击定位')}">${peer.mix?'疑似串码':'可A换B'} ↔ ${esc(peer.name)}</button>`:'')+'</div>';
           const links=hints.querySelector('.hint-inline');
@@ -204,6 +286,7 @@ export default function(component) {
         for(const [field,selector,value] of [['复盘实数','.edit-count',r.recount],['备注','.edit-note',r.note]]){const input=tr.querySelector(selector),draft=S.drafts[r.id]?.[field],next=draft?draft.value:(value??'');input.title=String(next);if(root.getRootNode().activeElement!==input&&input.value!==String(next))input.value=String(next)}
         if(tbody.children[i]!==tr){if(tbody.moveBefore&&tr.isConnected)tbody.moveBefore(tr,tbody.children[i]||null);else tbody.insertBefore(tr,tbody.children[i]||null)}
       }
+      S.renderSelection();S.renderBalance();S.renderExport();
       const panel=q('.panel');const detail=d.detail;
       if(detail&&S.detailOpen&&(!S.requestedDetail||(detail.a.id===S.requestedDetail.a&&(detail.b?.id||null)===S.requestedDetail.b))){
         if(!panel.open)panel.showModal();
@@ -241,7 +324,8 @@ export default function(component) {
         const draft=S.metaDrafts[e.metaKey];if(draft?.value===e.value)delete S.metaDrafts[e.metaKey];else if(draft)draft.base=e.value;
         for(const queued of S.queue)if(queued.kind==='meta'&&queued.metaKey===e.metaKey)queued.base=e.value;
       }
-      if(!data.ack.ok){S.queue=S.queue.filter(p=>p.kind!=='copy_snapshot');S.restore=true;if(S.copyIntent)S.abortCopy('保存失败，未复制任何文稿；请核对输入后重试')}
+      if(!data.ack.ok){S.queue=S.queue.filter(p=>p.kind!=='copy_snapshot');S.restore=true;if(S.copyIntent)S.abortCopy('保存失败，未复制任何文稿；请核对输入后重试');if(S.exportIntent)S.abortExport('保存失败，未生成或下载文件；草稿保留，请核对后重试')}
+      if(e.kind?.startsWith('balance_')){S.balanceRendered=null;if(data.ack.ok&&e.id)delete S.balanceDrafts[e.run+'|'+e.id]}
       if(data.ack.ok&&e.kind==='bulk')q('.bulk').classList.add('hidden');
       if(data.ack.ok&&e.kind==='refresh'){
         for(const [id,fields] of Object.entries(S.drafts))for(const [field,draft] of Object.entries(fields)){
@@ -251,13 +335,14 @@ export default function(component) {
         S.restore=Object.keys(S.drafts).length>0||Object.keys(S.metaDrafts).length>0;
       }
       S.inflight=null;S.remember();
+      if(data.ack.ok&&['export_snapshot','export_checks'].includes(e.kind)&&S.exportIntent?.id===e.request_id){const intent=S.exportIntent;queueMicrotask(()=>S.finishExport(data.export_snapshot,intent))}
       if(data.ack.ok&&e.kind==='copy_snapshot'&&S.copyIntent?.id===e.request_id){const intent=S.copyIntent;queueMicrotask(()=>S.finishCopy(data.copy_snapshot,intent))}
       if(!Object.keys(S.drafts).length&&!Object.keys(S.metaDrafts).length)S.restore=false;
     }
   }
   S.render();S.remember();if(S.scope!==data.active_scope&&!S.inflight&&!S.queue.length)S.enqueue('scope',{scope:S.scope});S.pump();
-  document.addEventListener('scroll',S.onScroll,true);S.observer.observe(q('.load-sentinel'));
-  return ()=>{document.removeEventListener('scroll',S.onScroll,true);S.observer.disconnect()};
+  document.addEventListener('scroll',S.onScroll,true);document.addEventListener('pointerup',S.onPointerUp,true);S.observer.observe(q('.load-sentinel'));
+  return ()=>{document.removeEventListener('scroll',S.onScroll,true);document.removeEventListener('pointerup',S.onPointerUp,true);S.observer.disconnect()};
 }
 
 // 所有列条件只作用于可见集合；后端财务面板与正式导出始终接收整批原数据。

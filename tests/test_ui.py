@@ -16,14 +16,12 @@ def test_all_native_entries_and_optional_evidence(store,batch,monkeypatch):
     at.selectbox(key='selected_batch').select(batch).run()
     assert not at.exception
     from client_app import PAGES
-    assert '03审核' not in PAGES and len(PAGES)==4
+    assert PAGES==['01 现场复盘与找差异','03 现场复核单打印','更多工具']
     for page in PAGES:
         at.session_state['navigation']=page;at.run()
         assert not at.exception,page
-        if page==PAGES[1]:
-            assert any('导出检查' in x.label for x in at.expander)
-            assert any(x.label=='下载公司盘点表.xls' and x.disabled for x in at.get('download_button'))
-    at.session_state['navigation']=PAGES[3]
+        assert not any(x.label=='下载公司盘点表.xls' for x in at.get('download_button')) # 迁入CCv2弹窗，由浏览器验证
+    at.session_state['navigation']=PAGES[2]
     for tool in ['供货商数据库','变化清单/七表母版','来源与本地备份','商品档案与异常分析']:
         at.session_state['tools_mode']=tool;at.run();assert not at.exception,tool
     at.session_state['tools_mode']='商品档案与异常分析'
@@ -35,7 +33,7 @@ def test_print_callbacks_persist_before_following_rerender(store,batch,monkeypat
     monkeypatch.setenv('STOCKTAKE_DATA_DIR',str(store.root))
     at=AppTest.from_file(str(APP),default_timeout=30).run()
     from client_app import PAGES
-    at.session_state['navigation']=PAGES[2];at.run()
+    at.session_state['navigation']=PAGES[1];at.run()
     next(b for b in at.button if b.label=='生成并保存PDF').click().run()
     assert not at.exception and len(store.prints(batch))==1
     first=store.prints(batch)[0];blob=store.print_pdf(batch,first['id'])

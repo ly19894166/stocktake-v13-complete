@@ -61,7 +61,16 @@ class Store:
         CREATE TABLE IF NOT EXISTS exchange_history(
             id INTEGER PRIMARY KEY, barcode TEXT NOT NULL, at TEXT NOT NULL,
             actor TEXT NOT NULL, before_json TEXT NOT NULL, after_json TEXT NOT NULL);
-        PRAGMA user_version=15;
+        CREATE TABLE IF NOT EXISTS balance_runs(
+            id TEXT PRIMARY KEY,batch TEXT NOT NULL REFERENCES batches(id),at TEXT NOT NULL,
+            source_revision INTEGER NOT NULL,current_revision INTEGER NOT NULL,
+            supplier_signature TEXT NOT NULL,version INTEGER NOT NULL,active INTEGER NOT NULL,
+            payload TEXT NOT NULL,request_id TEXT NOT NULL,UNIQUE(batch,request_id));
+        CREATE TABLE IF NOT EXISTS balance_actions(
+            id INTEGER PRIMARY KEY,batch TEXT NOT NULL REFERENCES batches(id),run_id TEXT NOT NULL REFERENCES balance_runs(id),
+            item_id TEXT,at TEXT NOT NULL,actor TEXT NOT NULL,kind TEXT NOT NULL,
+            before_json TEXT NOT NULL,after_json TEXT NOT NULL,request_id TEXT NOT NULL,UNIQUE(batch,request_id));
+        PRAGMA user_version=16;
         ''')
 
     def close(self):self.db.close()
@@ -144,7 +153,7 @@ class Store:
         state['meta'].setdefault('source_files',[r[0] for r in self.db.execute('SELECT filename FROM sources WHERE batch=?',(batch,))])
         return items,json.loads(row[1]),state,row[3]
 
-    def save(self, batch, items, state, revision, actor='本机店长', source='工作台编辑', request_id=None, item_steps=None):
+    def save(self, batch, items, state, revision, actor='本机店长', source='工作台编辑', request_id=None, item_steps=None,transaction_hook=None):
         actor=actor.strip() or '本机店长'
         request_id=request_id or uuid.uuid4().hex
         # 只保存允许编辑的字段；来源与固定序号不接受客户端修改。
@@ -196,6 +205,7 @@ class Store:
                             (batch,now(),actor.strip(),row[0],text))
             self.db.execute('UPDATE batches SET state=?,revision=revision+1 WHERE id=?',(text,batch))
             self.db.execute('INSERT INTO requests VALUES(?,?,?)',(batch,request_id,revision+1))
+            if transaction_hook:transaction_hook(revision+1)
         return revision+1
 
     def item_history(self,batch,record_id=None):
@@ -285,6 +295,10 @@ class Store:
             z.writestr('逐商品修改轨迹.json',dumps(self.item_history(batch)))
             z.writestr('可换货商品档案.json',dumps(self.exchange_list()))
             z.writestr('可换货档案修改历史.json',dumps(self.exchange_history()))
+            from balance_service import BalanceService
+            z.writestr('卓不凡平衡建议历史.json',dumps(BalanceService(self).history(batch)))
+            runs=self.db.execute('SELECT id,source_revision,current_revision,supplier_signature,version,active,payload FROM balance_runs WHERE batch=? ORDER BY rowid',(batch,)).fetchall()
+            z.writestr('卓不凡建议版本.json',dumps(runs))
             z.writestr('可选证据目录.json',dumps(self.evidence(batch)))
             for ident,filename,sha,blob in self.db.execute('SELECT id,filename,sha256,content FROM evidence_files WHERE batch=?',(batch,)):
                 if hashlib.sha256(blob).hexdigest()!=sha:raise ValueError('证据原件哈希校验失败')

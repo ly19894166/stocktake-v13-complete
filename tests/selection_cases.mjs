@@ -1,0 +1,13 @@
+import fs from 'node:fs/promises';import assert from 'node:assert/strict';
+const code=await fs.readFile(new URL('../ui/workbench_stats.js',import.meta.url),'utf8');
+const {sumDecimal,selectionStats,cellKey,rangeTotals}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+assert.equal(sumDecimal(['0.1','0.2']), '0.3');assert.equal(sumDecimal(['9007199254740993','1']), '9007199254740994');
+assert.equal(sumDecimal(['-.5','1e-3','-1.001','0']),'-1.5');assert.equal(sumDecimal([null,'','x'],2),'0.00');
+const rows=Array.from({length:259},(_,i)=>({id:'SIM'+i,unit:'件',stats_raw:{system:i===258?'64':'35',amount:'-0.01',recount:i===0?'0':null}}));
+let s=selectionStats(rows,new Set(rows.map(r=>cellKey(r.id,'system'))));assert.deepEqual(s,{selected:259,numeric:259,groups:[{unit:'件',money:false,sum:'9094'}]});
+s=selectionStats(rows,new Set([cellKey('SIM0','recount'),cellKey('SIM1','recount'),cellKey('SIM0','amount'),cellKey('SIM0','system')]));
+assert.equal(s.selected,4);assert.equal(s.numeric,3);assert.deepEqual(s.groups.map(g=>g.sum),['35','-0.01']);
+assert.equal(selectionStats(rows,new Set([cellKey('SIM0','recount')]),{SIM0:{'复盘实数':{value:'0.0001'}}}).groups[0].sum,'0.0001');
+rows[1].unit='瓶';assert.equal(selectionStats(rows,new Set([cellKey('SIM0','system'),cellKey('SIM1','system')])).groups.length,2);
+assert.deepEqual(rangeTotals(rows),{gain:'0.00',loss:'-2.59',net:'-2.59',missing:0});
+console.log('259格/9094，负数、零、空白、大整数、原始小数、草稿与混合单位精确统计通过');
