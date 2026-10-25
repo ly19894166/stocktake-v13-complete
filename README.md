@@ -35,7 +35,7 @@ $env:STOCKTAKE_DATA_DIR=Join-Path $env:LOCALAPPDATA 'StocktakeSandbox'
 
 ## 供应商归属与本地资料
 
-`supplier_policy.py`为01筛选、02审计、03打印提供同一归属。读取本机`vendors.json`和已保存批次目录，以完整条码、有效期及唯一供应商编码为依据。名称“桌不凡”只在对应已确认卓不凡编码时用于归一化识别；缺编码、未匹配、有效期不明、未核实别名或多供应商冲突标为“供货商待确认”。目录显示名称统一为卓不凡，归属判定另行显示；原始资料仍留档。
+`supplier_policy.py`为01筛选、02审计、03打印提供同一归属。读取本机`vendors.json`和已保存批次目录，以完整条码、有效期及唯一供应商编码为依据。名称“桌不凡”只在对应已确认卓不凡编码时用于归一化识别；无编码时，仅允许完整条码唯一且名称准确为“卓不凡”的本机目录记录按标准名称确认，编码仍留空；未匹配、有效期不明、未核实别名或多供应商冲突标为“供货商待确认”。目录显示名称统一为卓不凡，归属判定另行显示；原始资料仍留档。
 
 需要时在更多工具中，按本机目录已有编码保存人工确认；同条码冲突可单独选择有效编码或保留待确认。确认写入当前批次meta并留痕，不硬编码真实供应商编码或商品名单。公开`vendors.json`始终为空，真实目录不随Git上传。
 
@@ -49,7 +49,7 @@ V13数量、原始调整、逐行成本四舍五入和审核标准不变。净�
 .venv\Scripts\python.exe tests/prepare_fourth_demo.py
 ```
 
-97项自动测试通过。浏览器使用全新独立`STOCKTAKE_DATA_DIR=tests/runtime/fourth_verified_data`和18544端口，安装Playwright/Edge后运行`node tests/browser_fourth.mjs`，再运行`python tests/verify_fourth_artifacts.py audit`、`python tests/verify_fourth_artifacts.py pdf`。随后`node tests/browser_fourth.mjs --final-export`及`python tests/verify_fourth_artifacts.py company`验证严格三列。验证脚本需`STOCKTAKE_FOURTH_DATA_DIR`指向同一模拟目录。
+98项自动测试通过。浏览器使用全新独立`STOCKTAKE_DATA_DIR=tests/runtime/fourth_verified_data`和18544端口，安装Playwright/Edge后运行`node tests/browser_fourth.mjs`，再运行`python tests/verify_fourth_artifacts.py audit`、`python tests/verify_fourth_artifacts.py pdf`。随后`node tests/browser_fourth.mjs --final-export`及`python tests/verify_fourth_artifacts.py company`验证严格三列。验证脚本需`STOCKTAKE_FOURTH_DATA_DIR`指向同一模拟目录。
 
 实际停止重启模拟进程前后运行验证脚本的`before/after`模式和`node tests/browser_fourth_reopen.mjs`。禁止测试指向8513或正式数据目录。全部XLS/XLSX/PDF、截图和SQLite在忽略目录`tests/runtime/`，公开摘要为`tests/workflow_acceptance.json`。完整步骤与结果见[ACCEPTANCE.md](ACCEPTANCE.md)。
 

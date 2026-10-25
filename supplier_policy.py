@@ -47,9 +47,15 @@ class SupplierDirectory:
         elif self.meta.get('main_suppliers',{}).get(bc):
             selected_name=self.meta['main_suppliers'][bc]
             rows=[r for r in rows if r[1]==selected_name]
-        codes={c for c,n in rows};names={n for c,n in rows}
-        if len(codes)!=1 or not next(iter(codes),''):return pending('多供应商冲突或缺少唯一有效供应商编码')
+        codes={c for c,n in rows if c};names={n for c,n in rows}
+        if not codes:
+            if names=={CANONICAL}:return {'status':'zbf','name':CANONICAL,'code':'','reason':'完整条码在本机目录唯一对应准确标准名称；原目录未提供编码'}
+            return pending('无有效编码且标准名称无法唯一确认')
+        if len(codes)!=1:return pending('多供应商编码冲突')
         code=next(iter(codes))
+        coded_names={n for c,n in rows if c==code}
+        allowed_names=ALIASES if code in self.zbf_codes else coded_names
+        if any(not c and n not in allowed_names for c,n in rows):return pending('无编码目录项与已知编码存在名称冲突')
         if code in self.zbf_codes:return {'status':'zbf','name':CANONICAL,'code':code,'reason':'完整条码及有效供应商编码已确认'}
         if code in self.ambiguous_codes:return pending('同一供应商编码对应不同目录名称，尚未核实')
         if names&ALIASES:return pending('名称别名尚未与已确认的卓不凡编码对应')

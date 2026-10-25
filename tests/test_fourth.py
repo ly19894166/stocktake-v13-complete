@@ -50,6 +50,19 @@ def test_supplier_codes_alias_conflicts_and_dates(fourth):
     ambiguous=[{'商品条码':'0991','供货商编码':'SIM-X','供货商名称':'卓不凡'},{'商品条码':'0992','供货商编码':'SIM-X','供货商名称':'模拟不同公司'}]
     assert all(SupplierDirectory(ambiguous).classify({'商品条码':bc})['status']=='pending' for bc in ('0991','0992'))
 
+def test_unique_canonical_local_directory_without_inventing_code():
+    canonical={'商品条码':'0990000000000','供货商编码':'','供货商名称':'卓不凡'}
+    original=copy.deepcopy(canonical)
+    c=SupplierDirectory([canonical,canonical.copy()]).classify(canonical)
+    assert c['status']=='zbf' and c['code']=='' and canonical==original
+    alias={**canonical,'供货商名称':'桌不凡'}
+    other={**canonical,'供货商名称':'模拟其他公司'}
+    assert SupplierDirectory([alias]).classify(alias)['status']=='pending'
+    assert SupplierDirectory([canonical,alias]).classify(canonical)['status']=='pending'
+    assert SupplierDirectory([canonical,other]).classify(canonical)['status']=='pending'
+    coded={**canonical,'供货商编码':'SIM-CONFIRMED'}
+    assert SupplierDirectory([canonical,coded]).classify(canonical)['code']=='SIM-CONFIRMED'
+
 def test_audit_amounts_schema_and_manual_evidence(store,fourth):
     items,vs,*_=fourth;meta={'store':'模拟店','period':'模拟期','sales_cost':'10000000'}
     before=financial_panel(items,meta);m=audit_model(items,vs,meta);assert m['stats']['商品总条数']==60 and m['stats']['供货商待确认']==25
