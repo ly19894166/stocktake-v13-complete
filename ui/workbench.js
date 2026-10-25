@@ -12,23 +12,23 @@ export default function(component) {
   // 只缩短已有引擎的变化文字；数量、调整和金额继续使用后端V13结果。
   const shortChange=r=>r.recount===null?'':r.diff===0?'✓归零':r.change===0?'':(r.change>0?'↑':'↓')+r.change_label.split(' · ')[0].replace(/件/g,'').replace('盘亏增加','亏增').replace('盘盈减少','盈减').replace('盘盈增加','盈增').replace('盘亏减少','亏减');
   let S=root.__inventory;
-  if(S&&S.layoutVersion!==7){S.remember?.();S.observer?.disconnect();root.__inventory=null;S=null}
+  if(S&&S.layoutVersion!==8){S.remember?.();S.observer?.disconnect();root.__inventory=null;S=null}
   if(!S){
     let local={};try{local=JSON.parse(localStorage.getItem('stocktake:'+data.batch)||'{}')}catch{}
     const migrated=local.flowVersion!==6;
     S=root.__inventory={query:migrated?'':local.query||'',filters:migrated?[]:local.filters||[],category:migrated?'':local.category||'',supplier:migrated?'':local.supplier||'',sort:migrated?'sequence':local.sort||'sequence',scope:migrated?'exclude':local.scope||'exclude',columns:migrated?{}:local.columns||{},order:[],orderKey:'',loaded:200,editGeneration:0,copyIntent:null,drafts:local.drafts||{},queue:[],inflight:null,rows:new Map(),dom:new Map(),focus:null,seenAck:null,viewKey:'',rowSignatures:new Map(),restore:!!Object.keys(local.drafts||{}).length,metaDrafts:local.metaDrafts||{},timers:{},reportOpen:false,detailOpen:false,exportOpen:false,exportIntent:null,exportSnapshot:null,selection:new Set(),selectionAnchor:null,dragSelection:null,balanceDrafts:{}};
-    S.layoutVersion=7;
+    S.layoutVersion=8;
     root.innerHTML=`<div class="operating-panel">
       <div class="operating-inputs"><label>实际销售金额（元）<input data-meta="sales_amount" inputmode="decimal" aria-label="实际销售金额（元）" placeholder="待填写"></label><label>同期含税销售成本（元）<input data-meta="sales_cost" inputmode="decimal" aria-label="同期含税销售成本（元）" placeholder="待填写"></label><div class="calculation-status"></div><button class="export-open primary">下载盘点结果 ▾</button><button class="report-open">生成盘点汇报</button></div>
       <div class="audit muted">当前测算，仅供复盘；正式导出在顶部“下载盘点结果”中检查。</div></div><div class="metrics summary-rail" data-testid="metrics" aria-label="整店统计，包含全批次商品"></div>
-      <div class="toolbar primary-tools"><select class="scope" aria-label="商品范围"><option value="exclude">不含卓不凡（默认）</option><option value="all">全部商品</option><option value="zbf">仅卓不凡</option></select><input class="search" aria-label="搜索商品名、编码、完整条码或尾号" placeholder="商品名称 / 编码 / 完整条码 / 尾号4–8位"><select class="category" aria-label="品类筛选"></select><select class="view" aria-label="找货查看方式"><option value="sequence">原始序号（默认）</option><option value="amount">差异金额优先</option><option value="pair">疑似串码联排</option><option value="category">按品类查找</option></select><button class="regroup" title="按最新数据更新排序">刷新排序</button><button class="undo">撤销上次输入</button><button class="bulk-toggle">批量粘贴</button><button class="clear">清除筛选</button><button class="more-toggle" aria-expanded="false">更多筛选</button></div>
+      <div class="toolbar primary-tools"><select class="scope" aria-label="商品范围"><option value="exclude">不含卓不凡（默认）</option><option value="all">全部商品</option><option value="zbf">仅卓不凡</option></select><input class="search" aria-label="搜索商品名、编码、完整条码或尾号" placeholder="商品名称 / 编码 / 完整条码 / 尾号4–8位"><select class="category" aria-label="品类筛选"></select><select class="view" aria-label="找货查看方式"><option value="sequence">原始序号（默认）</option><option value="amount">差异金额优先</option><option value="pair">疑似串码联排</option><option value="category">按品类查找</option></select><button class="regroup" title="按最新数据更新排序">刷新排序</button><button class="jump-bottom" title="加载当前筛选的全部商品并跳到合计行；Ctrl+End">↓ 直达表尾</button><button class="undo">撤销上次输入</button><button class="bulk-toggle">批量粘贴</button><button class="clear">清除筛选</button><button class="more-toggle" aria-expanded="false">更多筛选</button></div>
       <div class="more-filters hidden"><div class="toolbar"><select class="supplier" aria-label="供应商筛选"></select><select class="sort" aria-label="建议排序"><option value="sequence">原始序号（默认）</option><option value="pair">疑似串码联排</option><option value="amount">差异金额优先</option><option value="quantity">数量优先</option><option value="category">按品类查找</option><option value="score">综合建议分</option></select><button class="refresh">刷新数据</button></div><div class="chips"></div><span class="muted">组合筛选同时满足；只改变显示顺序，不改变记录、实数和导出顺序。</span></div>
       <select class="locate hidden" aria-label="条码尾号匹配结果"></select><div class="message"></div>
       <div class="bulk hidden"><strong>批量粘贴复盘数</strong><p class="muted">每行：完整条码 Tab 复盘实数 Tab 人工备注 Tab 单位说明（后两项可省略）。全部校验通过后一次保存。</p><textarea aria-label="批量粘贴复盘数据"></textarea><button class="primary bulk-submit">校验并保存全部粘贴行</button></div>
       <div class="guide"><span class="result-count"></span><span class="saved" data-testid="save-status"></span></div>
       <section class="balance-section hidden" aria-label="卓不凡A换B专项核对"></section>
-      <div class="table-wrap"><table aria-label="01现场复盘表"><colgroup>${['seq','category','product','barcode','code','system','initial','recount','total','difference','amount','note','supplier','hints'].map(c=>`<col class="col-${c}">`).join('')}</colgroup><thead><tr><th><button class="header-filter" data-column="sequence" aria-label="筛选序号">序号 ▾</button></th><th><button class="header-filter" data-column="category" aria-label="筛选品类">品类 ▾</button></th><th><button class="header-filter" data-column="name" aria-label="筛选商品名称">商品名称 ▾</button></th><th><button class="header-filter" data-column="barcode" aria-label="筛选商品条码">商品条码 ▾</button></th><th class="col-code"><button class="header-filter" data-column="code" aria-label="筛选商品编码">商品编码 ▾</button></th><th><button class="header-filter" data-column="system" aria-label="筛选系统数">系统数 ▾</button></th><th><button class="header-filter" data-column="initial" aria-label="筛选初盘数">初盘数 ▾</button></th><th><button class="header-filter" data-column="recount" aria-label="筛选复盘实数">复盘实数 ▾</button></th><th><button class="header-filter" data-column="total" aria-label="筛选当前实物总数">当前实物总数 ▾</button></th><th><button class="header-filter" data-column="diff" aria-label="筛选最新差异">最新差异 ▾</button></th><th><button class="header-filter" data-column="amount" aria-label="筛选差异金额（元）">差异金额（元） ▾</button></th><th><button class="header-filter" data-column="note" aria-label="筛选备注／原因">备注／原因 ▾</button></th><th class="col-supplier"><button class="header-filter" data-column="supplier" aria-label="筛选供货商">供货商 ▾</button></th><th><button class="header-filter" data-column="hints" aria-label="筛选核查标签">核查标签 ▾</button></th></tr></thead><tbody></tbody></table></div>
-      <div class="load-sentinel" aria-label="连续浏览加载位置"></div><div class="scroll-status muted"></div>
+      <div class="table-wrap"><table aria-label="01现场复盘表"><colgroup>${['seq','category','product','barcode','code','system','initial','recount','total','difference','amount','note','supplier','hints'].map(c=>`<col class="col-${c}">`).join('')}</colgroup><thead><tr><th><button class="header-filter" data-column="sequence" aria-label="筛选序号">序号 ▾</button></th><th><button class="header-filter" data-column="category" aria-label="筛选品类">品类 ▾</button></th><th><button class="header-filter" data-column="name" aria-label="筛选商品名称">商品名称 ▾</button></th><th><button class="header-filter" data-column="barcode" aria-label="筛选商品条码">商品条码 ▾</button></th><th class="col-code"><button class="header-filter" data-column="code" aria-label="筛选商品编码">商品编码 ▾</button></th><th><button class="header-filter" data-column="system" aria-label="筛选系统数">系统数 ▾</button></th><th><button class="header-filter" data-column="initial" aria-label="筛选初盘数">初盘数 ▾</button></th><th><button class="header-filter" data-column="recount" aria-label="筛选复盘实数">复盘实数 ▾</button></th><th><button class="header-filter" data-column="total" aria-label="筛选当前实物总数">当前实物总数 ▾</button></th><th><button class="header-filter" data-column="diff" aria-label="筛选最新差异">最新差异 ▾</button></th><th><button class="header-filter" data-column="amount" aria-label="筛选差异金额（元）">差异金额（元） ▾</button></th><th><button class="header-filter" data-column="note" aria-label="筛选备注／原因">备注／原因 ▾</button></th><th class="col-supplier"><button class="header-filter" data-column="supplier" aria-label="筛选供货商">供货商 ▾</button></th><th><button class="header-filter" data-column="hints" aria-label="筛选核查标签">核查标签 ▾</button></th></tr></thead><tbody></tbody><tfoot class="column-totals" aria-label="当前筛选与全店数字合计"></tfoot></table></div>
+      <div class="load-sentinel" aria-label="连续浏览加载位置"></div><div class="table-tail"><span class="totals-note">数字合计仅供核对，不换算商品单位，不替代实盘或正式损耗计算。</span><button class="jump-top">↑ 返回表头</button></div><div class="scroll-status muted"></div>
       <div class="selection-status" role="status" aria-label="单元格计数与求和"><span class="selection-text">选中：0格　数值计数：0　求和：—</span><button class="selection-clear">清除选择</button></div>
       <dialog class="export-dialog" aria-label="下载盘点结果"><div class="panel-title"><strong>下载盘点结果 · 全店三列</strong><button class="export-close">关闭</button></div><p class="export-status" aria-live="polite"></p><div class="export-info"></div><details class="export-check-details"><summary>完整性核查与剩余问题</summary><label><input type="checkbox" class="export-coverage">确认同门店、同期间且覆盖本次完整盘点范围</label><label><input type="checkbox" class="export-evidence">确认差异已核实、相关凭证齐备</label><button class="export-check-save">保存导出核查</button><div class="export-blockers"></div></details><details class="export-preview"><summary>公司三列文件预览（全店）</summary><div class="export-preview-table"></div></details><div class="toolbar"><button class="export-download primary" disabled>下载公司盘点表.xls</button><span class="muted">每次下载先保存输入并重新读取全店；不使用筛选结果或未确认建议。</span></div></dialog>
       <dialog class="filter-dialog" aria-label="列筛选面板"></dialog><dialog class="panel" aria-label="商品详情与对应候选"></dialog>
@@ -175,8 +175,8 @@ export default function(component) {
     S.renderSelection=()=>{
       const visible=new Set(S.visible?.map(r=>r.id)||[]);S.selection=new Set([...S.selection].filter(k=>{try{return visible.has(JSON.parse(k)[0])}catch{return false}}));
       root.querySelectorAll('.table-wrap tbody [data-stat-field]').forEach(td=>td.classList.toggle('cell-selected',S.selection.has(cellKey(td.closest('tr').dataset.id,td.dataset.statField))));
-      const stats=selectionStats(S.rows,S.selection,S.drafts),sums=stats.groups.map(g=>`${g.money?'金额':'数量（'+g.unit+'）'}：${g.sum}${g.money?'元':''}`);
-      q('.selection-text').textContent=`选中：${stats.selected}格　数值计数：${stats.numeric}　${sums.length?sums.join(' ｜ '):'求和：—'}${sums.length>1?'（不同单位分开统计）':''}${Object.keys(S.drafts).length?' · 含未保存输入':''}`;
+      const stats=selectionStats(S.rows,S.selection,S.drafts);
+      q('.selection-text').textContent=`选中：${stats.selected}格　数值计数：${stats.numeric}　${stats.mixed?'数字求和':'求和'}：${stats.numeric?stats.sum:'—'}${Object.keys(S.drafts).length?' · 含未保存输入':''}`;
     };
     S.rangeSelection=(anchor,end,base=[])=>{
       const ids=S.visible.map(r=>r.id),a=ids.indexOf(anchor.id),b=ids.indexOf(end.id),c=statFields.indexOf(anchor.field),d=statFields.indexOf(end.field);if(Math.min(a,b,c,d)<0)return;
@@ -213,6 +213,33 @@ export default function(component) {
       }
     };
 
+    S.renderColumnTotals=filtered=>{
+      const scopes=[['filtered','当前筛选合计',columnTotals(filtered)],['store','全店所有商品合计',columnTotals([...S.rows.values()])]];
+      q('.column-totals').innerHTML=scopes.map(([scope,label,t])=>`<tr data-total-scope="${scope}"><th colspan="4" scope="row" class="totals-range">${label} · ${t.count}条<small>已填复盘 ${t.reviewed} / 未填 ${t.remaining}</small></th><td class="col-code"></td>${TOTAL_FIELDS.map(field=>{const c=t.columns[field],unknown=field!=='recount'&&c.missing;return `<td class="num total-${field}${field==='total'?' current-total-sum':''}" data-total-field="${field}" data-sum="${esc(c.sum)}" title="${esc(columns[field])}合计；有效数值${c.numeric}条${c.missing?'，'+c.missing+'条'+(field==='recount'?'复盘空白（不算已完成）':'待核实，合计仅含已知数字'):''}">${!c.numeric&&unknown?'待核实':esc(c.sum)}${unknown&&c.numeric?' *':''}</td>`}).join('')}<td class="totals-hint">已保存数字<br>合计不换算单位</td><td class="col-supplier"></td><td class="totals-hint">${t.columns.amount.missing?'* 有金额待核实，仅含已知金额':'差异金额合计（元）'}</td></tr>`).join('');
+      q('.totals-note').textContent='数字合计仅供核对，不换算单位，不替代实盘或正式损耗计算。'+(Object.keys(S.drafts).length?'未保存输入尚未计入表尾，保存成功后自动更新。':'空白复盘不算已完成。');
+    };
+    S.jumpTable=edge=>{
+      // 先渲染当前条件下的完整列表，不能停留在连续加载的200条末尾。
+      if(edge==='end'){S.loaded=Math.max(S.filteredCount||0,S.order.length);S.render()}
+      const generation=(S.jumpGeneration||0)+1;S.jumpGeneration=generation;
+      const align=()=>{
+        if(generation!==S.jumpGeneration||!root.isConnected)return;
+        const scroller=S.scrollParent(),port=scroller===document.scrollingElement?{top:0,bottom:innerHeight}:scroller.getBoundingClientRect();
+        const target=q(edge==='end'?'.table-tail':'.table-wrap'),box=target.getBoundingClientRect(),rail=document.querySelector('#stocktake-global-summary');
+        const delta=edge==='end'?box.bottom-Math.min(innerHeight,port.bottom)+q('.selection-status').getBoundingClientRect().height+10:box.top-Math.max(port.top,rail?.getBoundingClientRect().bottom||104)-6;
+        scroller.scrollTop+=delta;
+      };
+      // CCv2会根据内容重新测量高度；连续帧校准，避免跳到旧容器边界。
+      requestAnimationFrame(()=>{align();requestAnimationFrame(()=>{align();requestAnimationFrame(align)})});
+    };
+    for(const selector of ['.jump-bottom','.jump-top'])q(selector).onpointerdown=e=>e.preventDefault();
+    q('.jump-bottom').onclick=()=>S.jumpTable('end');q('.jump-top').onclick=()=>S.jumpTable('start');
+    S.onTableKey=e=>{
+      if(!root.isConnected||e.defaultPrevented||!e.ctrlKey||e.altKey||e.metaKey||!['End','Home'].includes(e.key))return;
+      if(root.querySelector('dialog[open]')||e.composedPath().some(el=>el.matches?.('input,textarea,select,[contenteditable]:not([contenteditable="false"])')))return;
+      e.preventDefault();S.jumpTable(e.key==='End'?'end':'start');
+    };
+
     S.render=()=>{
       const pinEditing=!S.filterChanged;S.filterChanged=false;const d=S.data,stats=d.stats;const tbody=q('.table-wrap tbody'),scroller=S.scrollParent();const active=root.getRootNode().activeElement;const anchor=[...tbody.children].find(el=>el.getBoundingClientRect().bottom>90);const anchorTop=anchor?.getBoundingClientRect().top;const priorScroll=scroller.scrollTop;
       q('.regroup').textContent=S.sort==='pair'?'重新联排':'刷新排序';q('.regroup').title='按最新数据更新排列；保存时保留行位置，避免打断输入';
@@ -227,6 +254,7 @@ export default function(component) {
       q('.chips').innerHTML=d.filters.map(f=>`<button class="chip ${S.filters.includes(f)?'active':''}" data-filter="${esc(f)}">${esc(f)}</button>`).join('');
       q('.chips').querySelectorAll('button').forEach(b=>b.onclick=()=>{S.filters=S.filters.includes(b.dataset.filter)?S.filters.filter(f=>f!==b.dataset.filter):[...S.filters,b.dataset.filter];S.focus=null;S.filterChanged=true;remember();S.render()});
       let rows=filterRows([...S.rows.values()],S);
+      S.filteredRows=rows;
       rows.sort((a,b)=>S.sort==='sequence'?a.sequence-b.sequence:S.sort==='amount'?Math.abs(b.amount||0)-Math.abs(a.amount||0)||a.sequence-b.sequence:S.sort==='quantity'?Math.abs(b.diff||0)-Math.abs(a.diff||0)||a.sequence-b.sequence:S.sort==='score'?b.score-a.score:a.category.localeCompare(b.category,'zh-CN')||a.sequence-b.sequence);
       const found=rows.length,key=JSON.stringify([S.query,S.filters,S.category,S.supplier,S.sort,S.scope,S.columns]);
       const matches=new Set(rows.map(r=>r.id));
@@ -286,7 +314,7 @@ export default function(component) {
         for(const [field,selector,value] of [['复盘实数','.edit-count',r.recount],['备注','.edit-note',r.note]]){const input=tr.querySelector(selector),draft=S.drafts[r.id]?.[field],next=draft?draft.value:(value??'');input.title=String(next);if(root.getRootNode().activeElement!==input&&input.value!==String(next))input.value=String(next)}
         if(tbody.children[i]!==tr){if(tbody.moveBefore&&tr.isConnected)tbody.moveBefore(tr,tbody.children[i]||null);else tbody.insertBefore(tr,tbody.children[i]||null)}
       }
-      S.renderSelection();S.renderBalance();S.renderExport();
+      S.renderColumnTotals(rows);S.renderSelection();S.renderBalance();S.renderExport();
       const panel=q('.panel');const detail=d.detail;
       if(detail&&S.detailOpen&&(!S.requestedDetail||(detail.a.id===S.requestedDetail.a&&(detail.b?.id||null)===S.requestedDetail.b))){
         if(!panel.open)panel.showModal();
@@ -341,8 +369,8 @@ export default function(component) {
     }
   }
   S.render();S.remember();if(S.scope!==data.active_scope&&!S.inflight&&!S.queue.length)S.enqueue('scope',{scope:S.scope});S.pump();
-  document.addEventListener('scroll',S.onScroll,true);document.addEventListener('pointerup',S.onPointerUp,true);S.observer.observe(q('.load-sentinel'));
-  return ()=>{document.removeEventListener('scroll',S.onScroll,true);document.removeEventListener('pointerup',S.onPointerUp,true);S.observer.disconnect()};
+  document.addEventListener('scroll',S.onScroll,true);document.addEventListener('pointerup',S.onPointerUp,true);document.addEventListener('keydown',S.onTableKey);S.observer.observe(q('.load-sentinel'));
+  return ()=>{document.removeEventListener('scroll',S.onScroll,true);document.removeEventListener('pointerup',S.onPointerUp,true);document.removeEventListener('keydown',S.onTableKey);S.observer.disconnect()};
 }
 
 // 所有列条件只作用于可见集合；后端财务面板与正式导出始终接收整批原数据。

@@ -56,10 +56,23 @@ jobs:
           python -c "import time,urllib.request;time.sleep(3);urllib.request.urlopen('http://127.0.0.1:18546/_stcore/health',timeout=30)"
           python tests/verify_sixth_artifacts.py after
           node tests/browser_sixth.mjs --reopen
+          kill "$server_pid"
+          wait "$server_pid" || true
+          export STOCKTAKE_DATA_DIR=tests/runtime/sumtail_ci_data
+          export STOCKTAKE_SUMTAIL_DATA_DIR=$STOCKTAKE_DATA_DIR
+          export STOCKTAKE_TEST_URL=http://127.0.0.1:18547
+          python tests/prepare_sumtail_demo.py
+          python -m streamlit run app.py --server.address 127.0.0.1 --server.port 18547 --server.headless true --browser.gatherUsageStats false > /tmp/stocktake-sumtail.log 2>&1 &
+          server_pid=$!
+          python -c "import time,urllib.request;time.sleep(3);urllib.request.urlopen('http://127.0.0.1:18547/_stcore/health',timeout=30)"
+          node tests/browser_sumtail.mjs
+          python tests/verify_sumtail_artifacts.py
       - name: 保存纯模拟验收截图和报告
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: sixth-simulated-acceptance
-          path: tests/runtime/sixth_results/
+          name: simulated-acceptance
+          path: |
+            tests/runtime/sixth_results/
+            tests/runtime/sumtail_results/
           retention-days: 14
