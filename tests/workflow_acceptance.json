@@ -1,0 +1,289 @@
+{
+  "pass": true,
+  "simulated_only": true,
+  "pytest_passed": 119,
+  "private_business_files_included": false,
+  "results": {
+    "browser_fifth_results": {
+      "pass": true,
+      "simulated_only": true,
+      "rows": 480,
+      "cases": [
+        {
+          "name": "首次默认不含卓不凡；旧排序/筛选一次性迁移，草稿保留且清除筛选不删除输入",
+          "pass": true
+        },
+        {
+          "name": "商品范围、差异状态/区间、金额、品类、备注、系统/初盘、串码、资格、供应商、编码/尾号及组合筛选准确，整店统计不受影响",
+          "pass": true
+        },
+        {
+          "name": "逐行金额显示、归零撤销/恢复重算、全部卓不凡含已复盘归零、0与空白及深处连续输入通过",
+          "pass": true
+        },
+        {
+          "name": "03只排除卓不凡且保留非卓不凡可换货商品；原单重印、全量批量录入和02全店480行独立真XLS通过",
+          "pass": true
+        }
+      ],
+      "resolutions": [
+        {
+          "width": 1366,
+          "height": 768,
+          "positions": [
+            {
+              "row": 1,
+              "rail_top": 194.765625,
+              "rail_bottom": 238.765625,
+              "header_top": 423.9375,
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 8,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
+            },
+            {
+              "row": 200,
+              "rail_top": 60,
+              "rail_bottom": 104,
+              "header_top": 104,
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 15,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
+            },
+            {
+              "row": 400,
+              "rail_top": 60,
+              "rail_bottom": 104,
+              "header_top": 104,
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 14,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
+            },
+            {
+              "row": 480,
+              "rail_top": 60,
+              "rail_bottom": 104,
+              "header_top": 104,
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 14,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
+            }
+          ]
+        },
+        {
+          "width": 1920,
+          "height": 1080,
+          "positions": [
+            {
+              "row": 1,
+              "rail_top": 194.765625,
+              "rail_bottom": 238.765625,
+              "header_top": 423.9375,
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 16,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
+            },
+            {
+              "row": 200,
+              "rail_top": 60,
+              "rail_bottom": 104,
+              "header_top": 104,
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 23,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
+            },
+            {
+              "row": 400,
+              "rail_top": 60,
+              "rail_bottom": 104,
+              "header_top": 104,
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 22,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
+            },
+            {
+              "row": 480,
+              "rail_top": 60,
+              "rail_bottom": 104,
+              "header_top": 104,
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 22,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
+            }
+          ]
+        },
+        {
+          "width": 2560,
+          "height": 1440,
+          "positions": [
+            {
+              "row": 1,
+              "rail_top": 194.765625,
+              "rail_bottom": 238.765625,
+              "header_top": 423.9375,
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 25,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
+            },
+            {
+              "row": 200,
+              "rail_top": 60,
+              "rail_bottom": 104,
+              "header_top": 104,
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 33,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
+            },
+            {
+              "row": 400,
+              "rail_top": 60,
+              "rail_bottom": 104,
+              "header_top": 104,
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 32,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
+            },
+            {
+              "row": 480,
+              "rail_top": 60,
+              "rail_bottom": 104,
+              "header_top": 104,
+              "metrics": 7,
+              "overflow": false,
+              "money_visible": true,
+              "barcodes_fit": true,
+              "inputs_fit": true,
+              "visible_rows": 32,
+              "ordinary_height_min": 38,
+              "ordinary_height_max": 38
+            }
+          ]
+        }
+      ],
+      "page_errors": []
+    },
+    "artifact_verification": {
+      "pass": true,
+      "simulated_only": true,
+      "rows": 480,
+      "registry_records": 28,
+      "registry_history_events": 30,
+      "amounts_equal_core_rows": 480,
+      "audit_rows": 80,
+      "audit_columns": 16,
+      "zbf_rows": 60,
+      "manual_eligible_rows": 20,
+      "full_candidate_pairs": 950,
+      "ui_max_candidates_per_product": 3,
+      "company_true_xls_rows": 480,
+      "company_columns": 3,
+      "company_all_zbf_and_manual_retained": true,
+      "historical_pdf_byte_identical": true,
+      "print_manual_records_retained": true,
+      "old_and_new_proof_sheets_present": true
+    },
+    "pdf_verification": {
+      "pass": true,
+      "simulated_only": true,
+      "rows": 414,
+      "pages": 25,
+      "per_page_rows": [
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        17,
+        6
+      ],
+      "handwriting_boxes": 414,
+      "minimum_box_height_points": 22,
+      "embedded_chinese_font": true,
+      "no_pairing_analysis": true
+    },
+    "restart_verification": {
+      "pass": true,
+      "simulated_only": true,
+      "all_ten_tables_unchanged_after_real_restart": true
+    },
+    "reopen_ui": {
+      "pass": true,
+      "simulated_only": true,
+      "rows": 480,
+      "proof_persisted": true,
+      "historical_pdf_rendered": true
+    }
+  }
+}

@@ -1,0 +1,77 @@
+// PR审查回归：独立模拟环境，打开/重新生成/复制均须等待保存，拒绝失败和版本冲突。
+import {createRequire} from 'node:module';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+const {chromium}=createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE||'playwright');
+const url=process.env.STOCKTAKE_TEST_URL||'http://127.0.0.1:18541';
+if(new URL(url).port==='8513'||!['127.0.0.1','localhost'].includes(new URL(url).hostname))throw Error('只允许独立模拟端口');
+const out=path.join(path.dirname(fileURLToPath(import.meta.url)),'runtime/workflow_results');
+const browser=await chromium.launch({channel:process.env.STOCKTAKE_BROWSER_CHANNEL||'msedge',headless:true});
+const context=await browser.newContext({viewport:{width:1920,height:1080},permissions:['clipboard-read','clipboard-write']});
+const page=await context.newPage(),errors=[],cases=[];page.on('pageerror',e=>errors.push(String(e)));
+const grid=page.locator('#stocktake-workbench'),report=grid.locator('.report-dialog');
+const check=(v,m)=>{if(!v)throw Error(m)};
+const state=()=>grid.evaluate(el=>el.__inventory.data);
+const saved=async()=>{await page.waitForFunction(()=>{const h=[...document.querySelectorAll('*')].find(e=>e.shadowRoot?.querySelector('#stocktake-workbench'));const s=h?.shadowRoot.querySelector('#stocktake-workbench').__inventory;return s&&!s.inflight&&!s.queue.length&&!Object.keys(s.drafts).length&&!Object.keys(s.metaDrafts).length},{},{timeout:90000})};
+const delay=()=>grid.evaluate(el=>{const s=el.__inventory,original=s.pump,until=performance.now()+1500;s.pump=()=>{const remaining=until-performance.now();if(remaining>0){clearTimeout(s.testDelay);s.testDelay=setTimeout(()=>{s.pump=original;original()},remaining)}else{s.pump=original;original()}}});
+const generated=()=>report.locator('.copy-status').filter({hasText:'已按最新已保存数据生成'}).waitFor({timeout:90000});
+const copied=()=>report.locator('.copy-status').filter({hasText:'已复制最新已保存'}).waitFor({timeout:90000});
+const readClip=()=>page.evaluate(()=>navigator.clipboard.readText());
+const sentinel=()=>page.evaluate(()=>navigator.clipboard.writeText('SIMULATED_BARRIER_SENTINEL'));
+const record=n=>{cases.push({name:n,pass:true});console.log(n)};
+try{
+  await page.goto(url,{waitUntil:'networkidle'});await page.getByText('01 连续复盘找差异',{exact:true}).first().click();await grid.locator('tbody tr').first().waitFor();
+  const initial=await state();check(initial.rows.length===450&&initial.rows.every(r=>r.barcode.startsWith('099')),'非450条独立模拟批次');
+  const a=initial.rows.find(r=>r.barcode==='0990000000000');
+  await grid.locator('.search').fill(a.barcode);
+  await delay();await sentinel();
+  await grid.locator('.edit-count').fill('5');
+  await grid.getByRole('textbox',{name:'同期含税销售成本（元）',exact:true}).fill('30000000');
+  await grid.locator('.report-open').click();
+  check(await report.locator('.report-text').isDisabled(),'打开仍允许复制旧文稿');
+  check((await report.locator('.report-text').inputValue()).includes('正在保存并更新'),'等待保存仍展示旧金额');
+  // 不等待保存，立刻再改鲜食盘亏并重新生成、复制。
+  await report.getByRole('textbox',{name:'鲜食盘亏（负数或0）',exact:true}).fill('-21.11');
+  await report.locator('.report-reset').click();await report.locator('.report-copy').click();
+  check(await readClip()==='SIMULATED_BARRIER_SENTINEL','保存完成前复制了旧稿');
+  await copied();const latest=await state(),text=await readClip();
+  check(text.includes('30000000.00元')&&text.includes(latest.panel.net+'元')&&text.includes('-9.98元'),'数量/成本/鲜食未全部更新');
+  record('数量、成本、鲜食未等保存就打开/重新生成/复制：全部最新，等待期间隐藏旧稿');
+  await report.locator('.report-close').click();await saved();
+  await grid.locator('.report-open').click();await generated();
+  await report.locator('.report-text').fill('模拟人工确认稿，仅用于保存与过期回归');await report.locator('.panel-title').click();await saved();
+  await report.locator('.report-copy').click();await report.locator('.copy-status').filter({hasText:'已复制当前已保存的人工编辑稿'}).waitFor();
+  check((await readClip()).startsWith('模拟人工确认稿'),'人工稿未保存复制');
+  await report.locator('.report-close').click();await saved();
+  await delay();await grid.locator('.edit-count').fill('6');await grid.locator('.report-open').click();await report.locator('.report-reset').click();await generated();
+  check(!(await report.locator('.report-text').inputValue()).includes('模拟人工确认稿'),'重新生成仍显示过期人工稿');
+  await report.locator('.report-copy').click();await copied();check((await readClip()).includes((await state()).panel.net+'元'),'重置文稿非最新');
+  record('人工稿保存可复制；源数量变化后重新生成清除过期稿并使用最新金额');
+  await report.locator('.report-close').click();await saved();
+  await delay();await sentinel();await grid.getByRole('textbox',{name:'同期含税销售成本（元）',exact:true}).fill('-1');
+  await grid.locator('.report-open').click();await report.locator('.report-copy').click();
+  await report.locator('.copy-status').filter({hasText:'保存失败，未复制'}).waitFor({timeout:30000});
+  check(await readClip()==='SIMULATED_BARRIER_SENTINEL','保存失败覆盖剪贴板');check(!await report.locator('.report-text').isDisabled(),'失败后编辑框不能恢复');
+  record('保存失败明确拒绝复制，剪贴板不变，编辑框恢复');
+  await report.locator('.report-close').click();await grid.getByRole('textbox',{name:'同期含税销售成本（元）',exact:true}).fill('30000000');await grid.locator('.search').click();await saved();
+  const other=await context.newPage();await other.goto(url,{waitUntil:'networkidle'});const g2=other.locator('#stocktake-workbench');await g2.locator('tbody tr').first().waitFor();
+  await grid.locator('.edit-count').fill('7');await grid.locator('.search').click();await saved();
+  await sentinel();await g2.getByRole('textbox',{name:'同期含税销售成本（元）',exact:true}).fill('40000000');await g2.locator('.report-open').click();await g2.locator('.report-copy').click();
+  await g2.locator('.report-dialog .copy-status').filter({hasText:'保存失败，未复制'}).waitFor({timeout:30000});
+  check(await readClip()==='SIMULATED_BARRIER_SENTINEL','版本冲突仍复制了旧金额');
+  check((await g2.locator('.message').textContent()).includes('另一窗口'),'未提示版本冲突');await other.close();
+  record('第二窗口发生真实版本冲突：拒绝保存与复制，保留未保存输入');
+  await delay();await sentinel();await grid.getByRole('textbox',{name:'同期含税销售成本（元）',exact:true}).fill(String(initial.finance.sales_cost));
+  await grid.locator('.report-open').click();await report.locator('.report-copy').click();await report.locator('.report-close').click();await saved();
+  check(await readClip()==='SIMULATED_BARRIER_SENTINEL','关闭后仍异步覆盖剪贴板');
+  record('等待复制时关闭窗口：取消复制，剪贴板不变');
+  // 恢复本次回归前的模拟数量和鲜食，保持已下载公司XLS逐行一致。
+  await grid.locator('.edit-count').fill(String(a.recount));await grid.locator('.search').click();await saved();
+  await grid.locator('.report-open').click();await generated();
+  await report.getByRole('textbox',{name:'鲜食盘亏（负数或0）',exact:true}).fill(String(initial.report.config.fresh_loss));
+  await report.locator('.report-reset').click();await generated();await report.locator('.report-close').click();await saved();
+  check(!errors.length,errors.join('\n'));
+  await fs.writeFile(path.join(out,'report_barrier_results.json'),JSON.stringify({pass:true,simulated_only:true,cases,page_errors:errors},null,2));
+}catch(e){await page.screenshot({path:path.join(out,'report_barrier_failure.png'),fullPage:true});throw e}
+finally{await browser.close()}

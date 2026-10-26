@@ -105,6 +105,8 @@ def validate_all(items):
         for field in ('商品编码','商品条码'):
             if not x.get(field):
                 errors.append(prefix+'缺'+field)
+        if x.get('商品条码') and not str(x['商品条码']).isdigit():
+            errors.append(prefix+'商品条码不是完整数字文本，请核实原件')
         if x.get('核实结论','') not in ('','已排除','确认并附单据','无需调整'):
             errors.append(prefix+'核实结论不在允许选项中')
     for key in ('记录ID','商品编码','商品条码'):
@@ -144,8 +146,10 @@ def supplier_map(vendors):
     return {bc: ('多供货商·待核实' if len(rows)>1 else rows[0]['供货商名称'])
             for bc, rows in grouped.items()}
 
-def legacy_candidate_counts(items, vendors):
+def legacy_candidate_counts(items, vendors, *, meta=None, exchange=()):
     """严格复刻V13 U/V条件：同部/大/中类、成本±.01、反向>=1；售价±.01或缺售价。"""
+    from exchange_rules import eligibility
+    allowed=eligibility(items,vendors,meta,exchange)
     suppliers = supplier_map(vendors)
     result = {x['记录ID']:{'串码':[], '换货':[]} for x in items}
     diffs = {x['记录ID']:newest_diff(x) for x in items}
@@ -160,7 +164,7 @@ def legacy_candidate_counts(items, vendors):
             if db is None or abs(db)<1 or da*db>=0:
                 continue
             sb = suppliers.get(b['商品条码'],'未在目录')
-            if sa not in ('未在目录','多供货商·待核实','') and sa==sb:
+            if allowed[a['记录ID']]['group'] and allowed[a['记录ID']]['group']==allowed[b['记录ID']]['group']:
                 result[a['记录ID']]['换货'].append(b['序号'])
             cb = decimal_value(b['成本价'])
             if ca is None or cb is None or abs(ca-cb)>D('.01'):
@@ -172,9 +176,9 @@ def legacy_candidate_counts(items, vendors):
                 result[a['记录ID']]['串码'].append(b['序号'])
     return result
 
-def candidate_counts(items, vendors, parameters=None, main=None):
+def candidate_counts(items, vendors, parameters=None, main=None, *, meta=None, exchange=()):
     from intelligence import CandidateEngine
-    engine=CandidateEngine(items,vendors,parameters,main)
+    engine=CandidateEngine(items,vendors,parameters,main,meta=meta,exchange=exchange)
     return {x['记录ID']:{'串码':[engine.items[k]['序号'] for k in engine.neighbors(x['记录ID'],'mix')],
                         '换货':[engine.items[k]['序号'] for k in engine.neighbors(x['记录ID'],'swap')]}
             for x in items}
@@ -224,7 +228,7 @@ def export_blockers(items, meta, vendors, counts=None, engine=None):
             errors.append('尚未确认：'+label)
     if counts is None and engine is None:
         from intelligence import CandidateEngine
-        engine=CandidateEngine(items,vendors,meta.get('parameters'),meta.get('main_suppliers'))
+        engine=CandidateEngine(items,vendors,meta.get('parameters'),meta.get('main_suppliers'),meta=meta)
     for x in items:
         prefix = f"序号{x['序号']}："
         if not valid_count(x.get('复盘实数')):
@@ -245,15 +249,16 @@ def export_blockers(items, meta, vendors, counts=None, engine=None):
     stats = summary(items,meta.get('sales_cost'))
     if stats['报损率'] is None:
         errors.append('缺含税销售成本或存在无法计算的商品')
-    elif stats['净损耗率']>2:
+    elif max(ZERO,-stats['净差异'])>decimal_value(meta.get('sales_cost'))*D('.002'):
         errors.append('超过2‰·继续复核')
     return list(dict.fromkeys(errors))
 
-def create_company_xls(items, meta, vendors):
+def create_company_xls(items, meta, vendors, engine=None):
     # 不信任界面按钮状态，内核再次验证所有条件。
-    blockers = export_blockers(items,meta,vendors)
+    blockers = export_blockers(items,meta,vendors,engine=engine)
     if blockers:
         raise ValueError('不能正式导出：'+'；'.join(blockers[:8]))
+    if len(items)>65535:raise ValueError('旧格式XLS最多65535条数据，请按公司批准的批次范围处理')
     import xlwt
     book = xlwt.Workbook(encoding='utf-8')
     sheet = book.add_sheet('Sheet1')

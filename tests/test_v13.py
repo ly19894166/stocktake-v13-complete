@@ -63,7 +63,7 @@ def pair(items):
 
 def test_price_filter_and_zero_cancels_both_candidates(items):
     group,vendors=pair(items);a,b=group
-    for c in candidate_counts(group,vendors).values():assert len(c['串码'])==len(c['换货'])==1
+    for c in candidate_counts(group,vendors).values():assert len(c['串码'])==1 and len(c['换货'])==0 # 普通供应商无换货授权
     b['零售价']=D(4)
     # 最新要求：售价只作证据与排序，不阻止疑似匹配。
     for c in candidate_counts(group,[]).values():assert c['串码']

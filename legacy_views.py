@@ -91,28 +91,28 @@ def printing(db, batch, items, state, rev):
     st.caption('在 PDF 阅读器中选 A4 横向、实际大小打印。软件不直接向打印机发送任务。')
 
 def review(db, batch, items, state, rev, actor):
-    st.subheader('03 · 动态报损率与公司三列导出')
+    st.subheader('正式导出检查 · 公司三列')
     meta = state['meta']
-    st.caption('报损率＝（盘盈＋盘亏）÷同期含税销售成本×1000。盘亏为负；净损耗率＝MAX(0,−报损率)。')
+    st.caption('经营金额在01填写并自动保存。此处仅在准备正式导出时确认完整范围和凭证，不自动提交审批。')
     with st.form('audit_' + batch):
-        cost = st.number_input('同期含税销售成本（元）', min_value=0.0, value=float(meta.get('sales_cost') or 0), step=100.0, key=f'cost_{batch}_{rev}')
         coverage = st.checkbox('确认同门店、同期间且覆盖本次完整盘点范围', value=meta.get('coverage', False))
         evidence = st.checkbox('确认差异已核实、相关凭证齐备', value=meta.get('evidence', False))
         submit = st.form_submit_button('保存审核参数')
     if submit:
         updated = copy.deepcopy(state)
-        updated['meta'].update(sales_cost=cost, coverage=coverage, evidence=evidence)
+        updated['meta'].update(coverage=coverage, evidence=evidence)
         save(db, batch, items, updated, rev, actor)
     s = summary(items, meta.get('sales_cost'))
     if s['报损率'] is not None:
         a, b, c = st.columns(3)
-        a.metric('报损率（‰）', f"{s['报损率']:.4f}")
-        b.metric('净损耗率 / 标准（‰）', f"{s['净损耗率']:.4f} / 2")
+        a.metric('当前测算净差异率（‰）', f"{s['报损率']:.2f}")
+        b.metric('当前净损耗率 / 标准（‰）', f"{s['净损耗率']:.2f} / 2")
         c.metric('允许净损耗额度（元）', f"{s['允许额度']:,.2f}")
         if not meta.get('coverage'):
             st.warning('完整范围尚未确认，当前仅供暂估，不能判断整店达标。')
     else:
         st.info('请填写有效的同期含税销售成本。')
+    st.caption(f"已填写{s['已复盘']}项 / 剩余{s['未复盘']}项；当前测算不代表最终审核通过。")
     blockers = export_blockers(items, meta, state['vendors'])
     if blockers:
         st.warning(f'待审核：{len(blockers)}项条件未满足。')

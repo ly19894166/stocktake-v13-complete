@@ -25,3 +25,90 @@ jobs:
         env:
           STOCKTAKE_CJK_FONT: /usr/share/fonts/truetype/wqy/wqy-zenhei.ttc
         run: python -m pytest tests -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: 安装浏览器模拟验收工具
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install --with-deps chromium
+      - name: 500条虚构商品浏览器验收与真实进程重启
+        env:
+          STOCKTAKE_CJK_FONT: /usr/share/fonts/truetype/wqy/wqy-zenhei.ttc
+          STOCKTAKE_DATA_DIR: tests/runtime/sixth_ci_data
+          STOCKTAKE_SIXTH_DATA_DIR: tests/runtime/sixth_ci_data
+          STOCKTAKE_TEST_URL: http://127.0.0.1:18546
+          PYTHONPATH: .
+        run: |
+          python tests/prepare_sixth_demo.py
+          python -m streamlit run app.py --server.address 127.0.0.1 --server.port 18546 --server.headless true --browser.gatherUsageStats false > /tmp/stocktake-sixth.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          python -c "import time,urllib.request;time.sleep(3);urllib.request.urlopen('http://127.0.0.1:18546/_stcore/health',timeout=30)"
+          node tests/browser_sixth.mjs
+          python tests/verify_sixth_artifacts.py verify
+          python tests/verify_sixth_artifacts.py pdf
+          python tests/verify_sixth_artifacts.py before
+          kill "$server_pid"
+          wait "$server_pid" || true
+          python -m streamlit run app.py --server.address 127.0.0.1 --server.port 18546 --server.headless true --browser.gatherUsageStats false > /tmp/stocktake-sixth-reopen.log 2>&1 &
+          server_pid=$!
+          python -c "import time,urllib.request;time.sleep(3);urllib.request.urlopen('http://127.0.0.1:18546/_stcore/health',timeout=30)"
+          python tests/verify_sixth_artifacts.py after
+          node tests/browser_sixth.mjs --reopen
+          kill "$server_pid"
+          wait "$server_pid" || true
+          export STOCKTAKE_DATA_DIR=tests/runtime/sumtail_ci_data
+          export STOCKTAKE_SUMTAIL_DATA_DIR=$STOCKTAKE_DATA_DIR
+          export STOCKTAKE_TEST_URL=http://127.0.0.1:18547
+          python tests/prepare_sumtail_demo.py
+          python -m streamlit run app.py --server.address 127.0.0.1 --server.port 18547 --server.headless true --browser.gatherUsageStats false > /tmp/stocktake-sumtail.log 2>&1 &
+          server_pid=$!
+          python -c "import time,urllib.request;time.sleep(3);urllib.request.urlopen('http://127.0.0.1:18547/_stcore/health',timeout=30)"
+          node tests/browser_sumtail.mjs
+          python tests/verify_sumtail_artifacts.py
+          kill "$server_pid"
+          wait "$server_pid" || true
+          export STOCKTAKE_DATA_DIR=tests/runtime/seventh_ci_data
+          export STOCKTAKE_SEVENTH_DATA_DIR=$STOCKTAKE_DATA_DIR
+          export STOCKTAKE_TEST_URL=http://127.0.0.1:18548
+          python tests/prepare_seventh_demo.py
+          python -m streamlit run app.py --server.address 127.0.0.1 --server.port 18548 --server.headless true --browser.gatherUsageStats false > /tmp/stocktake-seventh.log 2>&1 &
+          server_pid=$!
+          python -c "import time,urllib.request;time.sleep(3);urllib.request.urlopen('http://127.0.0.1:18548/_stcore/health',timeout=30)"
+          node tests/browser_seventh.mjs
+          python tests/verify_seventh_artifacts.py
+          kill "$server_pid"
+          wait "$server_pid" || true
+          export STOCKTAKE_DATA_DIR=tests/runtime/approval_ci_data
+          export STOCKTAKE_APPROVAL_DATA_DIR=$STOCKTAKE_DATA_DIR
+          export STOCKTAKE_TEST_URL=http://127.0.0.1:18549
+          python tests/prepare_approval_demo.py
+          python -m streamlit run app.py --server.address 127.0.0.1 --server.port 18549 --server.headless true --browser.gatherUsageStats false > /tmp/stocktake-approval.log 2>&1 &
+          server_pid=$!
+          python -c "import time,urllib.request;time.sleep(3);urllib.request.urlopen('http://127.0.0.1:18549/_stcore/health',timeout=30)"
+          node tests/browser_approval.mjs
+          python tests/verify_approval_artifacts.py
+          kill "$server_pid"
+          wait "$server_pid" || true
+          export STOCKTAKE_DATA_DIR=tests/runtime/zbf_ci_data
+          export STOCKTAKE_ZBF_DATA_DIR=$STOCKTAKE_DATA_DIR
+          export STOCKTAKE_TEST_URL=http://127.0.0.1:18550
+          python tests/prepare_zbf_demo.py
+          python -m streamlit run app.py --server.address 127.0.0.1 --server.port 18550 --server.headless true --browser.gatherUsageStats false > /tmp/stocktake-zbf.log 2>&1 &
+          server_pid=$!
+          python -c "import time,urllib.request;time.sleep(3);urllib.request.urlopen('http://127.0.0.1:18550/_stcore/health',timeout=30)"
+          node tests/browser_zbf.mjs
+          python tests/verify_zbf_artifacts.py
+      - name: 保存纯模拟验收截图和报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulated-acceptance
+          path: |
+            tests/runtime/sixth_results/
+            tests/runtime/sumtail_results/
+            tests/runtime/seventh_results/
+            tests/runtime/approval_results/
+            tests/runtime/zbf_results/
+          retention-days: 14

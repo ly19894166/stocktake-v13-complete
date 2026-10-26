@@ -59,11 +59,11 @@ def test_supplier_swap_main_choice_and_ranking(items):
     b.update(部类='其他',大类='其他',中类='其他',成本价=D(99))
     vendors=[{'商品条码':x['商品条码'],'供货商名称':'模拟供货商甲'} for x in rows]
     e=CandidateEngine(rows,vendors)
-    assert b['记录ID'] not in e.neighbors(a['记录ID']) and b['记录ID'] in e.neighbors(a['记录ID'],'swap')
+    assert b['记录ID'] not in e.neighbors(a['记录ID']) and not e.neighbors(a['记录ID'],'swap')
     assert e.peers(a['记录ID'])[0]['mix'] is True
     vendors.append({'商品条码':a['商品条码'],'供货商名称':'另一家'})
     assert not CandidateEngine(rows,vendors).neighbors(a['记录ID'],'swap')
-    assert CandidateEngine(rows,vendors,main={a['商品条码']:'模拟供货商甲'}).count(a['记录ID'],'swap')==3
+    assert CandidateEngine(rows,vendors,main={a['商品条码']:'模拟供货商甲'}).count(a['记录ID'],'swap')==0 # 同供应商不再自动授权
 
 def test_twenty_thousand_rows_indexed_count_and_validation(items):
     # 高度同类同成本也不能为UI计数物化一亿条边。

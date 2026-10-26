@@ -55,10 +55,46 @@ class Store:
             content BLOB NOT NULL,rows_json TEXT NOT NULL,created TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS item_events_batch ON item_events(batch,id);
         CREATE TABLE IF NOT EXISTS preferences(key TEXT PRIMARY KEY,value TEXT NOT NULL);
-        PRAGMA user_version=14;
+        CREATE TABLE IF NOT EXISTS exchange_products(
+            barcode TEXT PRIMARY KEY, record TEXT NOT NULL, revision INTEGER NOT NULL,
+            updated_at TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS exchange_history(
+            id INTEGER PRIMARY KEY, barcode TEXT NOT NULL, at TEXT NOT NULL,
+            actor TEXT NOT NULL, before_json TEXT NOT NULL, after_json TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS balance_runs(
+            id TEXT PRIMARY KEY,batch TEXT NOT NULL REFERENCES batches(id),at TEXT NOT NULL,
+            source_revision INTEGER NOT NULL,current_revision INTEGER NOT NULL,
+            supplier_signature TEXT NOT NULL,version INTEGER NOT NULL,active INTEGER NOT NULL,
+            payload TEXT NOT NULL,request_id TEXT NOT NULL,UNIQUE(batch,request_id));
+        CREATE TABLE IF NOT EXISTS balance_actions(
+            id INTEGER PRIMARY KEY,batch TEXT NOT NULL REFERENCES batches(id),run_id TEXT NOT NULL REFERENCES balance_runs(id),
+            item_id TEXT,at TEXT NOT NULL,actor TEXT NOT NULL,kind TEXT NOT NULL,
+            before_json TEXT NOT NULL,after_json TEXT NOT NULL,request_id TEXT NOT NULL,UNIQUE(batch,request_id));
+        PRAGMA user_version=16;
         ''')
 
     def close(self):self.db.close()
+
+    def exchange_list(self):
+        return [json.loads(r[0])|{'_revision':r[1]} for r in self.db.execute('SELECT record,revision FROM exchange_products ORDER BY barcode')]
+
+    def exchange_history(self,barcode=None):
+        sql='SELECT barcode,at,actor,before_json,after_json FROM exchange_history'
+        rows=self.db.execute(sql+(' WHERE barcode=?' if barcode else '')+' ORDER BY id DESC',(barcode,) if barcode else ())
+        return [{'商品条码':b,'时间':t,'操作人':a,'修改前':json.loads(old),'修改后':json.loads(new)} for b,t,a,old,new in rows]
+
+    def save_exchange(self,records,items,actor='本机店长'):
+        from exchange_registry import validate_records
+        records=validate_records(records,items)
+        with self.db:
+            for record in records:
+                bc=record['商品条码'];expected=record.pop('_revision',0)
+                old=self.db.execute('SELECT record,revision FROM exchange_products WHERE barcode=?',(bc,)).fetchone()
+                if (old[1] if old else 0)!=expected:raise ValueError('可换货档案已由另一窗口更新，请刷新后核对')
+                before=old[0] if old else '{}';after=dumps(record)
+                if before==after:continue
+                self.db.execute('INSERT INTO exchange_products VALUES(?,?,?,?) ON CONFLICT(barcode) DO UPDATE SET record=excluded.record,revision=excluded.revision,updated_at=excluded.updated_at',(bc,after,expected+1,now()))
+                self.db.execute('INSERT INTO exchange_history(barcode,at,actor,before_json,after_json) VALUES(?,?,?,?,?)',(bc,now(),actor,before,after))
 
     def preference(self,key):
         r=self.db.execute('SELECT value FROM preferences WHERE key=?',(key,)).fetchone()
@@ -108,12 +144,16 @@ class Store:
         state['meta'].setdefault('parameters',{})
         state['meta'].setdefault('main_suppliers',{})
         state['meta'].setdefault('pair_proofs',{})
+        # 旧批次只在内存补默认值，不改原始行，不清空旧复盘或日志。
+        state['meta'].setdefault('sales_amount',None)
+        state['meta'].setdefault('report',{})
         info=self.db.execute('SELECT created FROM batches WHERE id=?',(batch,)).fetchone()
         state['meta'].setdefault('first_import_at',info[0])
+        state['exchange_catalog']=self.exchange_list()
         state['meta'].setdefault('source_files',[r[0] for r in self.db.execute('SELECT filename FROM sources WHERE batch=?',(batch,))])
         return items,json.loads(row[1]),state,row[3]
 
-    def save(self, batch, items, state, revision, actor='本机店长', source='工作台编辑', request_id=None):
+    def save(self, batch, items, state, revision, actor='本机店长', source='工作台编辑', request_id=None, item_steps=None,transaction_hook=None):
         actor=actor.strip() or '本机店长'
         request_id=request_id or uuid.uuid4().hex
         # 只保存允许编辑的字段；来源与固定序号不接受客户端修改。
@@ -127,6 +167,9 @@ class Store:
         cost=payload['meta'].get('sales_cost')
         if cost is not None and (decimal_value(cost) is None or decimal_value(cost)<0):
             raise ValueError('销售成本须为非负有限数字')
+        amount=payload['meta'].get('sales_amount')
+        if amount is not None and (decimal_value(amount) is None or decimal_value(amount)<0):
+            raise ValueError('实际销售金额须为非负有限数字')
         text=dumps(payload)
         with self.db:
             self.db.execute('BEGIN IMMEDIATE')
@@ -140,7 +183,18 @@ class Store:
             if json.loads(row[0])==json.loads(text):return revision
             oldpayload=json.loads(row[0]);original=hydrate(json.loads(row[2]))
             previous=patch_items(original,oldpayload.get('edits',{}));byid={x['记录ID']:x for x in previous}
-            for x in items:
+            if item_steps is not None:
+                newbyid={x['记录ID']:x for x in items};covered=set()
+                for step in item_steps:
+                    ident,field=step['id'],step['field']
+                    if ident not in newbyid or field not in EDIT_FIELDS or (ident,field) in covered:raise ValueError('连续录入轨迹无效')
+                    covered.add((ident,field));olditem=byid[ident];x=newbyid[ident]
+                    if dumps(olditem.get(field))!=dumps(x.get(field)):
+                        self.db.execute('INSERT INTO item_events(batch,record_id,barcode,at,actor,source,old_json,new_json,request_id) VALUES(?,?,?,?,?,?,?,?,?)',
+                            (batch,ident,x['商品条码'],now(),actor,source,dumps({field:olditem.get(field)}),dumps({field:x.get(field)}),step['request_id']))
+                changed={(x['记录ID'],field) for x in items for field in EDIT_FIELDS if dumps(byid[x['记录ID']].get(field))!=dumps(x.get(field))}
+                if not changed<=covered:raise ValueError('连续录入缺少对应轨迹，未保存')
+            for x in ([] if item_steps is not None else items):
                 olditem=byid[x['记录ID']]
                 changed=[k for k in EDIT_FIELDS if dumps(olditem.get(k))!=dumps(x.get(k))]
                 if changed:
@@ -151,6 +205,7 @@ class Store:
                             (batch,now(),actor.strip(),row[0],text))
             self.db.execute('UPDATE batches SET state=?,revision=revision+1 WHERE id=?',(text,batch))
             self.db.execute('INSERT INTO requests VALUES(?,?,?)',(batch,request_id,revision+1))
+            if transaction_hook:transaction_hook(revision+1)
         return revision+1
 
     def item_history(self,batch,record_id=None):
@@ -238,6 +293,12 @@ class Store:
             z.writestr('业务状态.json',dumps({'items':items,'notes':notes,'state':state,'revision':revision}))
             z.writestr('修改日志.json',dumps(self.history(batch)))
             z.writestr('逐商品修改轨迹.json',dumps(self.item_history(batch)))
+            z.writestr('可换货商品档案.json',dumps(self.exchange_list()))
+            z.writestr('可换货档案修改历史.json',dumps(self.exchange_history()))
+            from balance_service import BalanceService
+            z.writestr('卓不凡平衡建议历史.json',dumps(BalanceService(self).history(batch)))
+            runs=self.db.execute('SELECT id,source_revision,current_revision,supplier_signature,version,active,payload FROM balance_runs WHERE batch=? ORDER BY rowid',(batch,)).fetchall()
+            z.writestr('卓不凡建议版本.json',dumps(runs))
             z.writestr('可选证据目录.json',dumps(self.evidence(batch)))
             for ident,filename,sha,blob in self.db.execute('SELECT id,filename,sha256,content FROM evidence_files WHERE batch=?',(batch,)):
                 if hashlib.sha256(blob).hexdigest()!=sha:raise ValueError('证据原件哈希校验失败')
