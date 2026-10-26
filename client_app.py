@@ -155,10 +155,14 @@ def render_workbench(db,batch,items,state,rev):
     selected=st.session_state.get('detail_'+batch)
     if selected:enrich.update(k for k in selected if k)
     rows=row_models(items,state,engine,cross,enrich)
-    classes=SupplierDirectory(effective_vendors(state),state['meta']).classify_all(items)
+    directory=SupplierDirectory(effective_vendors(state),state['meta']);classes=directory.classify_all(items)
+    from workbench_efficiency import issue_model
+    issues,progress=issue_model(items,state['meta'],engine)
     for row in rows:
         c=classes[row['id']];row['supplier']=c['name'];row['supplier_status']=c['status']
-        if c['status']=='pending':row['risk_hints'].append('供货商待确认：'+c['reason'])
+        row['zbf_review']=directory.zbf_review(engine.items[row['id']]);row['issues']=issues[row['id']]
+        row['supplier_display']='卓不凡归属待核实' if row['zbf_review'] else '' if c['status']=='pending' else c['name']
+        if row['zbf_review']:row['risk_hints'].append('卓不凡归属待核实：'+c['reason'])
     byid={x['记录ID']:x for x in items}
     for row in rows:
         x=byid[row['id']]
@@ -200,7 +204,7 @@ def render_workbench(db,batch,items,state,rev):
            'rate':num(stats['报损率']),'zero_count':sum(x.get('复盘实数') is not None and newest_diff(x)==0 for x in items)}}
     from company_export import export_signature
     payload['export_snapshot']=st.session_state.get('export_'+batch);payload['export_signature']=export_signature(rev,state)
-    payload['balance']=None
+    payload['balance']=None;payload['progress']=progress
     if st.session_state.get('exchange_scope_'+batch)=='zbf':
         from balance_service import BalanceService,supplier_signature
         service=BalanceService(db);run=service.latest(batch)

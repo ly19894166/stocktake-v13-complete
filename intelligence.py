@@ -178,6 +178,8 @@ def priority(x,candidate_count=0,parameters=None):
 FILTERS=('未填复盘','盘亏','盘盈','仍有差异','疑似串码','允许A换B','可能跨店调拨','高金额','负库存','缺成本','零成本','缺编码','重复条码','异常换算','缺文字原因','数据错误')
 
 def row_models(items,state,engine=None,cross=None,enrich=()):
+    from supplier_policy import SupplierDirectory,effective_vendors
+    directory=SupplierDirectory(effective_vendors(state),state['meta'])
     engine=engine or engine_for(items,state)
     params=engine.parameters;cross=cross or {};duplicate=Counter(x['商品条码'] for x in items)
     packing=defaultdict(set)
@@ -217,7 +219,9 @@ def row_models(items,state,engine=None,cross=None,enrich=()):
             flags.append('缺文字原因');risks.append('缺文字原因：已填实数仍有差异')
         source_errors=[p['说明'] for p in x.get('导入问题',[]) if p['等级']=='阻断']
         if source_errors:flags.append('数据错误');risks.extend(source_errors[:3])
-        if engine.suppliers.get(x['商品条码'])=='多供货商·待核实':risks.append('多供应商冲突：可在供应商数据库选主或保留未知')
+        if engine.eligibility[key]['supplier']['status']=='pending' and engine.eligibility[key]['supplier'].get('reason') and any(v in engine.eligibility[key]['supplier']['reason'] for v in ('冲突','卓不凡')):
+            # 目录缺失仍保留后台；主表是否提示由统一卓不凡相关性决定。
+            if directory.zbf_review(x):risks.append('卓不凡归属待核实，可在供应商目录查看依据')
         score,why=priority(x,mix+swap,params)
         peers=engine.peers(key) if key in enrich else []
         from workflow import change_description

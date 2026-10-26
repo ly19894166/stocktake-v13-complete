@@ -24,6 +24,24 @@ export function selectionStats(rows,selection,drafts={}){
   return {selected,numeric,sum:sumDecimal(values),mixed:kinds.size>1};
 }
 export const TOTAL_FIELDS=['system','initial','recount','total','diff','amount'];
+export const SELECT_FIELDS=['name','barcode','code',...TOTAL_FIELDS];
+export function selectedTable(rows,selection,drafts={}){
+  const fields=SELECT_FIELDS.filter(field=>rows.some(r=>selection.has(cellKey(r.id,field))));
+  const selected=rows.filter(r=>fields.some(field=>selection.has(cellKey(r.id,field))));
+  const matrix=selected.map(r=>fields.map(field=>{
+    if(!selection.has(cellKey(r.id,field)))return '';
+    const raw=field==='recount'&&drafts[r.id]?.['复盘实数']?drafts[r.id]['复盘实数'].value:TOTAL_FIELDS.includes(field)?r.stats_raw?.[field]:r[field];
+    return String(raw??'').replace(/[\t\r\n]+/g,' ');
+  }));
+  return {fields,ids:selected.map(r=>r.id),matrix};
+}
+export function clipboardTable(table,safe=true){
+  const esc=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const textField=field=>['name','barcode','code'].includes(field);
+  const plain=table.matrix.map(row=>row.map((value,i)=>safe&&value&&(table.fields[i]==='barcode'||table.fields[i]==='code'||textField(table.fields[i])&&/^[=+\-@]/.test(value))?"'"+value:value).join('\t')).join('\r\n');
+  const html='<html xmlns:x="urn:schemas-microsoft-com:office:excel"><meta charset="utf-8"><body><table>'+table.matrix.map(row=>'<tr>'+row.map((value,i)=>'<td'+(safe&&textField(table.fields[i])?' style="mso-number-format:\'\\@\'" x:str="'+esc(value)+'"':'')+'>'+esc(value)+'</td>').join('')+'</tr>').join('')+'</table></body></html>';
+  return {plain,html};
+}
 export function columnTotals(rows){
   const columns={};
   for(const field of TOTAL_FIELDS){

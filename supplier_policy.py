@@ -18,10 +18,12 @@ class SupplierDirectory:
         # 已有批次使用创建/首次导入时点；运行日期变化不重新定义历史归属。
         reference=self.meta.get('supplier_as_of') or self.meta.get('first_import_at')
         self.today=today or (date.fromisoformat(str(reference)[:10]) if reference else datetime.now(ZoneInfo('Asia/Shanghai')).date())
-        self.groups=defaultdict(list);names=defaultdict(set);self.invalid=set()
+        self.groups=defaultdict(list);names=defaultdict(set);self.invalid=set();self.all_groups=defaultdict(list);all_names=defaultdict(set)
         for row in vendors:
             bc=as_code(row.get('商品条码'));code=as_code(row.get('供货商编码'));name=str(row.get('供货商名称') or '').strip()
             if not bc:continue
+            self.all_groups[bc].append((code,name))
+            if code:all_names[code].add(name)
             try:
                 start=self._date(row.get('生效日期'));end=self._date(row.get('失效日期'))
             except ValueError:self.invalid.add(bc);continue
@@ -32,6 +34,7 @@ class SupplierDirectory:
         self.ambiguous_codes={code for code,ns in names.items() if len(ns)>1 and not ns<=ALIASES}
         # 人工确认仅允许目录内实际存在的编码，不能凭空增加商品名单。
         self.zbf_codes.update(code for code in self.meta.get('zbf_confirmed_codes',[]) if code in names)
+        self.zbf_evidence_codes={code for code,ns in all_names.items() if ns&ALIASES}|self.zbf_codes
 
     @staticmethod
     def _date(value):
@@ -66,3 +69,11 @@ class SupplierDirectory:
         return {'status':'other','name':next(iter(names)),'code':code,'reason':'有效目录唯一编码'}
 
     def classify_all(self,items):return {x['记录ID']:self.classify(x) for x in items}
+
+    def zbf_review(self,item):
+        """仅控制主表提醒；不把未知归属改成普通，也不赋予换货资格。"""
+        if self.classify(item)['status']!='pending':return False
+        bc=as_code(item.get('商品条码'));rows=self.all_groups.get(bc,[])
+        if any(name in ALIASES or code in self.zbf_evidence_codes for code,name in rows):return True
+        if self.meta.get('main_suppliers',{}).get(bc) in ALIASES:return True
+        return any(str(item.get(k) or '').strip() in ALIASES for k in ('供货商名称','供货商','供应商')) or as_code(item.get('供货商编码')) in self.zbf_evidence_codes
