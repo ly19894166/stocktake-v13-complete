@@ -7,7 +7,7 @@ import sys
 
 ROOT=Path(__file__).resolve().parents[1]
 MAX_SIZE=512*1024
-EXTRA_PUBLIC={'workbench_efficiency.py','approval_reporting.py','approval_page.py'}
+EXTRA_PUBLIC={'workbench_efficiency.py','approval_reporting.py','approval_page.py','zbf_dashboard.py'}
 ROOT_FILES=set('app.py bootstrap.py client_app.py core.py source_core.py intelligence.py imports_exports.py storage.py reporting.py workflow.py field_printing.py legacy_views.py pdf_renderer.py print_manager.py workbench_component.py requirements.txt requirements-lock.txt requirements-dev.txt start_windows.bat run_tests.bat vendors.json README.md CONTRIBUTING.md SECURITY.md AGENTS.md SOURCE_MANIFEST.json ACCEPTANCE.md .gitignore .gitattributes 启动完整盘点客户端.cmd 启动盘点软件V1.3.cmd'.split())
 ROOT_FILES.update({'report_intake.py','supplier_policy.py','vendor_audit.py','exchange_rules.py','exchange_registry.py','EXCHANGE_DATABASE.md','balance_service.py','company_export.py'})
 PATTERNS=[

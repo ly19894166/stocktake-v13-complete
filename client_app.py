@@ -213,6 +213,10 @@ def render_workbench(db,batch,items,state,rev):
         payload['balance']['history']=[{'at':h['时间'],'kind':h['操作'],'item':h['商品记录'],
             'old':h['修改后'].get('formal_before'),'new':h['修改后'].get('formal_after'),
             'note':h['修改后'].get('entry',{}).get('note','')} for h in service.history(batch)[:100]]
+    from zbf_dashboard import dashboard
+    payload['zbf_dashboard']=dashboard(items,state,rev,payload['balance'])
+    pending_ids=set(payload['zbf_dashboard']['pending_ids'])
+    for row in rows:row['zbf_pending']=row['id'] in pending_ids
     render_total_rail(payload['panel'])
     if st.session_state.get('exchange_scope_'+batch)=='zbf':
         from vendor_audit import audit_panel

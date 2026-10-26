@@ -89,6 +89,17 @@ jobs:
           python -c "import time,urllib.request;time.sleep(3);urllib.request.urlopen('http://127.0.0.1:18549/_stcore/health',timeout=30)"
           node tests/browser_approval.mjs
           python tests/verify_approval_artifacts.py
+          kill "$server_pid"
+          wait "$server_pid" || true
+          export STOCKTAKE_DATA_DIR=tests/runtime/zbf_ci_data
+          export STOCKTAKE_ZBF_DATA_DIR=$STOCKTAKE_DATA_DIR
+          export STOCKTAKE_TEST_URL=http://127.0.0.1:18550
+          python tests/prepare_zbf_demo.py
+          python -m streamlit run app.py --server.address 127.0.0.1 --server.port 18550 --server.headless true --browser.gatherUsageStats false > /tmp/stocktake-zbf.log 2>&1 &
+          server_pid=$!
+          python -c "import time,urllib.request;time.sleep(3);urllib.request.urlopen('http://127.0.0.1:18550/_stcore/health',timeout=30)"
+          node tests/browser_zbf.mjs
+          python tests/verify_zbf_artifacts.py
       - name: 保存纯模拟验收截图和报告
         if: always()
         uses: actions/upload-artifact@v4
@@ -99,4 +110,5 @@ jobs:
             tests/runtime/sumtail_results/
             tests/runtime/seventh_results/
             tests/runtime/approval_results/
+            tests/runtime/zbf_results/
           retention-days: 14

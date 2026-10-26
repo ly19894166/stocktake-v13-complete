@@ -12,12 +12,12 @@ export default function(component) {
   // 只缩短已有引擎的变化文字；数量、调整和金额继续使用后端V13结果。
   const shortChange=r=>r.recount===null?'':r.diff===0?'✓归零':r.change===0?'':(r.change>0?'↑':'↓')+r.change_label.split(' · ')[0].replace(/件/g,'').replace('盘亏增加','亏增').replace('盘盈减少','盈减').replace('盘盈增加','盈增').replace('盘亏减少','亏减');
   let S=root.__inventory;
-  if(S&&S.layoutVersion!==10){S.stopDrag?.();S.remember?.();S.observer?.disconnect();root.__inventory=null;S=null}
+  if(S&&S.layoutVersion!==11){S.stopDrag?.();S.remember?.();S.observer?.disconnect();root.__inventory=null;S=null}
   if(!S){
     let local={};try{local=JSON.parse(localStorage.getItem('stocktake:'+data.batch)||'{}')}catch{}
     const migrated=local.flowVersion!==6;
     S=root.__inventory={query:migrated?'':local.query||'',filters:migrated?[]:local.filters||[],category:migrated?'':local.category||'',supplier:migrated?'':local.supplier||'',sort:migrated?'sequence':local.sort||'sequence',scope:migrated?'exclude':local.scope||'exclude',quick:migrated?'':local.quick||'',nextUnreviewed:!!local.nextUnreviewed,safeClipboard:local.safeClipboard!==false,columns:migrated?{}:local.columns||{},order:[],orderKey:'',loaded:200,editGeneration:0,copyIntent:null,drafts:local.drafts||{},queue:[],inflight:null,rows:new Map(),dom:new Map(),focus:null,seenAck:null,viewKey:'',rowSignatures:new Map(),restore:!!Object.keys(local.drafts||{}).length,metaDrafts:local.metaDrafts||{},timers:{},reportOpen:false,detailOpen:false,exportOpen:false,exportIntent:null,exportSnapshot:null,selection:new Set(),selectionAnchor:null,dragSelection:null,balanceDrafts:{}};
-    S.layoutVersion=10;root.tabIndex=0;
+    S.layoutVersion=11;root.tabIndex=0;
     root.innerHTML=`<div class="progress-strip" aria-label="整店待处理进度"></div><div class="operating-panel">
       <div class="operating-inputs"><label>实际销售金额（元）<input data-meta="sales_amount" inputmode="decimal" aria-label="实际销售金额（元）" placeholder="待填写"></label><label>同期含税销售成本（元）<input data-meta="sales_cost" inputmode="decimal" aria-label="同期含税销售成本（元）" placeholder="待填写"></label><div class="calculation-status"></div><button class="export-open primary">下载盘点结果 ▾</button><button class="report-open">生成盘点汇报</button></div>
       <div class="audit muted">当前测算，仅供复盘；正式导出在顶部“下载盘点结果”中检查。</div></div><div class="metrics summary-rail" data-testid="metrics" aria-label="整店统计，包含全批次商品"></div>
@@ -26,12 +26,12 @@ export default function(component) {
       <select class="locate hidden" aria-label="条码尾号匹配结果"></select><div class="message"></div>
       <div class="bulk hidden"><strong>批量粘贴复盘数</strong><p class="muted">每行：完整条码 Tab 复盘实数 Tab 人工备注 Tab 单位说明（后两项可省略）。全部校验通过后一次保存。</p><textarea aria-label="批量粘贴复盘数据"></textarea><button class="primary bulk-submit">校验并保存全部粘贴行</button></div>
       <div class="guide"><span class="result-count"></span><span class="entry-hint" aria-live="polite"></span><span class="saved" data-testid="save-status"></span></div>
-      <section class="balance-section hidden" aria-label="卓不凡A换B专项核对"></section>
+      <section class="zbf-dashboard hidden" aria-label="卓不凡A换B专项平账"></section><section class="balance-section hidden" aria-label="卓不凡A换B专项核对"></section>
       <div class="table-wrap"><table aria-label="01现场复盘表"><colgroup>${['seq','category','product','barcode','code','system','initial','recount','total','difference','amount','note','supplier','hints'].map(c=>`<col class="col-${c}">`).join('')}</colgroup><thead><tr><th><button class="header-filter" data-column="sequence" aria-label="筛选序号">序号 ▾</button></th><th><button class="header-filter" data-column="category" aria-label="筛选品类">品类 ▾</button></th><th><button class="header-filter" data-column="name" aria-label="筛选商品名称">商品名称 ▾</button></th><th><button class="header-filter" data-column="barcode" aria-label="筛选商品条码">商品条码 ▾</button></th><th class="col-code"><button class="header-filter" data-column="code" aria-label="筛选商品编码">商品编码 ▾</button></th><th><button class="header-filter" data-column="system" aria-label="筛选系统数">系统数 ▾</button></th><th><button class="header-filter" data-column="initial" aria-label="筛选初盘数">初盘数 ▾</button></th><th><button class="header-filter" data-column="recount" aria-label="筛选复盘实数">复盘实数 ▾</button></th><th><button class="header-filter" data-column="total" aria-label="筛选当前实物总数">当前实物总数 ▾</button></th><th><button class="header-filter" data-column="diff" aria-label="筛选最新差异">最新差异 ▾</button></th><th><button class="header-filter" data-column="amount" aria-label="筛选差异金额（元）">差异金额（元） ▾</button></th><th><button class="header-filter" data-column="note" aria-label="筛选备注／原因">备注／原因 ▾</button></th><th class="col-supplier"><button class="header-filter" data-column="supplier" aria-label="筛选供货商">供货商 ▾</button></th><th><button class="header-filter" data-column="hints" aria-label="筛选核查标签">核查标签 ▾</button></th></tr></thead><tbody></tbody><tfoot class="column-totals" aria-label="当前筛选与全店数字合计"></tfoot></table></div>
       <div class="load-sentinel" aria-label="连续浏览加载位置"></div><div class="table-tail"><span class="totals-note">数字合计仅供核对，不换算商品单位，不替代实盘或正式损耗计算。</span><button class="jump-top">↑ 返回表头</button></div><div class="scroll-status muted"></div>
       <div class="selection-status" role="status" aria-label="单元格计数与求和"><span class="selection-text">选中：0格　数值计数：0　求和：—</span><div class="selection-actions hidden"><select class="selection-column" aria-label="选择统计或复制列"><option value="name">商品名称</option><option value="barcode">完整条码</option><option value="code">商品编码</option><option value="system">系统数</option><option value="initial">初盘数</option><option value="recount">复盘实数</option><option value="total">当前总数</option><option value="diff">最新差异</option><option value="amount">差异金额</option></select><button class="selection-to-end">选至本列底部</button><button class="selection-all">选中整列</button><button class="selection-copy">复制选区</button><label><input class="selection-safe" type="checkbox" checked>Excel安全文本</label></div><span class="selection-copy-status" aria-live="polite"></span><button class="selection-clear">清除选择</button></div>
       <dialog class="export-dialog" aria-label="下载盘点结果"><div class="panel-title"><strong>下载盘点结果 · 全店三列</strong><button class="export-close">关闭</button></div><p class="export-status" aria-live="polite"></p><div class="export-info"></div><details class="export-check-details"><summary>完整性核查与剩余问题</summary><label><input type="checkbox" class="export-coverage">确认同门店、同期间且覆盖本次完整盘点范围</label><label><input type="checkbox" class="export-evidence">确认差异已核实、相关凭证齐备</label><button class="export-check-save">保存导出核查</button><div class="export-blockers"></div></details><details class="export-preview"><summary>公司三列文件预览（全店）</summary><div class="export-preview-table"></div></details><div class="toolbar"><button class="export-draft primary" disabled>下载当前核对草稿.xls</button><button class="export-download" disabled>下载正式系统候选.xls</button><span class="muted">草稿始终可下载，未核实、不代表审批通过，不可当正式上传候选。正式候选仍须全部校验通过。每次先保存输入并读取全店。</span></div></dialog>
-      <dialog class="filter-dialog" aria-label="列筛选面板"></dialog><dialog class="panel" aria-label="商品详情与对应候选"></dialog>
+      <dialog class="zbf-analysis" aria-label="卓不凡平账分析"></dialog><dialog class="filter-dialog" aria-label="列筛选面板"></dialog><dialog class="panel" aria-label="商品详情与对应候选"></dialog>
       <dialog class="note-dialog" aria-label="展开编辑人工备注"><div class="panel-title"><strong>人工备注／原因</strong><button class="note-close">保存并收起</button></div><textarea class="note-editor" aria-label="完整人工备注"></textarea><p class="muted">自动保存。系统线索不会覆盖人工备注。</p></dialog>
       <dialog class="calculation-dialog" aria-label="V13差异计算依据"><div class="panel-title"><strong>V13差异计算依据</strong><button class="calculation-close">关闭</button></div><div class="calculation-body"></div></dialog>
       <dialog class="report-dialog" aria-label="季度盘点汇报"><div class="panel-title"><strong>季度盘点汇报</strong><button class="report-close">关闭</button></div><div class="report-fields"></div><p class="report-warnings muted"></p><label class="report-label">最终文稿（可直接编辑，自动保存）<textarea class="report-text" aria-label="最终盘点汇报文稿"></textarea></label><div class="toolbar"><button class="report-copy primary">一键复制文稿</button><button class="report-reset">按最新数据重新生成</button><button class="report-old hidden">查看上次人工稿</button><span class="copy-status" aria-live="polite"></span></div></dialog>`;
@@ -95,7 +95,7 @@ export default function(component) {
       q('.report-old').classList.toggle('hidden',!report.stale_draft);
     };
     q('.more-toggle').onclick=()=>{const hidden=q('.more-filters').classList.toggle('hidden');q('.more-toggle').setAttribute('aria-expanded',String(!hidden))};
-    q('.scope').value=S.scope;q('.scope').onchange=e=>{S.scope=e.target.value;S.focus=null;S.filterChanged=true;remember();S.enqueue('scope',{scope:S.scope});S.render()};
+    q('.scope').value=S.scope;q('.scope').onchange=e=>{S.scope=e.target.value;if(S.scope!=='zbf'&&S.quick.startsWith('zbf_'))S.quick='';S.focus=null;S.filterChanged=true;remember();S.enqueue('scope',{scope:S.scope});S.render()};
     q('.search').value=S.query;
     q('.search').oninput=e=>{S.query=e.target.value;S.focus=null;S.filterChanged=true;remember();S.render()};
     q('.category').onchange=e=>{S.category=e.target.value;S.focus=null;S.filterChanged=true;remember();S.render()};
@@ -132,8 +132,8 @@ export default function(component) {
     q('.view').value=S.sort;
     q('.view').onchange=e=>{S.sort=e.target.value;q('.sort').value=S.sort;S.orderKey='';S.focus=null;S.filterChanged=true;remember();S.render()};
     q('.regroup').onclick=()=>{S.orderKey='';S.render()};
-    S.scrollParent=()=>{for(let el=root.getRootNode().host;el;el=el.parentElement)if(/auto|scroll/.test(getComputedStyle(el).overflowY)&&el.scrollHeight>el.clientHeight+10)return el;return document.scrollingElement};
-    S.requestVisible=()=>{if(S.inflight||S.queue.some(e=>e.kind==='view'))return;const ids=S.visible.filter(r=>{const el=S.dom.get(r.id);if(!el)return false;const box=el.getBoundingClientRect();return box.bottom>-500&&box.top<innerHeight+800}).map(r=>r.id).filter(id=>!S.data.enriched.includes(id)).slice(0,150);if(ids.length)S.enqueue('view',{ids})};
+    S.scrollParent=()=>{for(let el=root.getRootNode().host;el;el=el.parentElement)if(/auto|scroll|overlay/.test(getComputedStyle(el).overflowY)&&el.clientHeight>0)return el;return document.scrollingElement};
+    S.requestVisible=()=>{if(S.dragSelection||S.inflight||S.queue.some(e=>e.kind==='view'))return;const ids=S.visible.filter(r=>{const el=S.dom.get(r.id);if(!el)return false;const box=el.getBoundingClientRect();return box.bottom>-500&&box.top<innerHeight+800}).map(r=>r.id).filter(id=>!S.data.enriched.includes(id)).slice(0,150);if(ids.length)S.enqueue('view',{ids})};
     S.onScroll=()=>{if(!root.isConnected)return;clearTimeout(S.scrollTimer);S.scrollTimer=setTimeout(S.requestVisible,160)};
     S.observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)&&S.loaded<S.filteredCount){S.loaded+=200;S.render()}},{rootMargin:'900px'});
     // 导出屏障：先提交实数/备注/经营草稿，等待逐次确认，再读全批次最新版本。
@@ -205,19 +205,31 @@ export default function(component) {
     for(const selector of ['.selection-to-end','.selection-all','.selection-copy','.selection-clear'])q(selector).onpointerdown=e=>e.preventDefault();
     q('.selection-to-end').onclick=()=>S.selectColumn(true);q('.selection-all').onclick=()=>S.selectColumn(false);q('.selection-copy').onclick=S.copySelection;q('.selection-clear').onclick=S.clearSelection;
     q('.selection-column').onchange=e=>{const id=S.selectionAnchor?.id||(S.filteredOrder||[])[0];if(id){S.selectionAnchor={id,field:e.target.value};S.selectColumn(false)}};
-    S.stopDrag=()=>{if(S.dragFrame)cancelAnimationFrame(S.dragFrame);S.dragFrame=null;S.dragSelection=null};S.onPointerUp=S.stopDrag;
+    S.dragViewport=()=>{
+      const scroller=S.dragSelection?.scroller||S.scrollParent(),rect=scroller===document.scrollingElement?{top:0,bottom:innerHeight}:scroller.getBoundingClientRect();
+      const top=Math.max(0,rect.top+(scroller.clientTop||0)),bottom=Math.min(innerHeight,top+scroller.clientHeight,rect.bottom);
+      const th=q('.table-wrap thead th'),inset=parseFloat(getComputedStyle(th).top)||0,rail=document.querySelector('#stocktake-global-summary')?.getBoundingClientRect(),own=q('.summary-rail').getBoundingClientRect(),status=q('.selection-status').getBoundingClientRect();
+      const safeTop=Math.max(top+inset+th.getBoundingClientRect().height,rail?.height?rail.bottom:0,own.height?own.bottom:0)+2;
+      return {scroller,top:safeTop,bottom:Math.max(safeTop+1,Math.min(bottom,status.top)-2)};
+    };
+    S.extendDrag=()=>{
+      const drag=S.dragSelection;if(!drag)return;const port=S.dragViewport(),trs=[...q('.table-wrap tbody').children];if(!trs.length)return;
+      const y=Math.max(port.top+1,Math.min(port.bottom-1,drag.y));const index=selectionRowAt(trs.map(tr=>{const r=tr.getBoundingClientRect();return {top:r.top,bottom:r.bottom}}),y),tr=trs[index];if(!tr)return;
+      const cells=[...tr.querySelectorAll('[data-select-field]')].filter(td=>td.getBoundingClientRect().width>0);
+      const td=cells.find(td=>{const r=td.getBoundingClientRect();return drag.x>=r.left&&drag.x<r.right})||cells.find(td=>td.dataset.selectField===drag.anchor.field);if(!td)return;
+      const end={id:tr.dataset.id,field:td.dataset.selectField},key=cellKey(end.id,end.field);if(key!==drag.last){drag.last=key;S.rangeSelection(drag.anchor,end,drag.base)}
+    };
+    S.stopDrag=()=>{if(S.dragFrame)cancelAnimationFrame(S.dragFrame);S.dragFrame=null;const drag=S.dragSelection;if(drag?.scroller)drag.scroller.style.overflowAnchor=drag.overflowAnchor;S.dragSelection=null;root.classList.remove('drag-selecting')};
+    S.onPointerUp=e=>{if(S.dragSelection){if(e){S.dragSelection.x=e.clientX;S.dragSelection.y=e.clientY}S.extendDrag()}S.stopDrag()};
     S.dragTick=()=>{
       const drag=S.dragSelection;if(!drag||!root.isConnected){S.stopDrag();return}
-      const scroller=S.scrollParent(),port=scroller===document.scrollingElement?{top:0,bottom:innerHeight}:scroller.getBoundingClientRect();
-      const top=Math.max(port.top,q('.table-wrap thead th').getBoundingClientRect().bottom)+4,bottom=Math.min(innerHeight,port.bottom,q('.selection-status').getBoundingClientRect().top)-4;
-      let speed=drag.y>bottom-30?Math.min(36,Math.max(3,(drag.y-bottom+32)*.8)):drag.y<top+30?-Math.min(36,Math.max(3,(top+32-drag.y)*.8)):0;
-      if(speed){const prior=scroller.scrollTop;scroller.scrollTop+=speed;
-        if(speed>0&&S.loaded<S.filteredCount&&scroller.scrollTop===prior){S.loaded=Math.min(S.filteredCount,S.loaded+200);S.render()}
-      }
-      const x=Math.max(1,Math.min(innerWidth-2,drag.x)),y=Math.max(top,Math.min(bottom,drag.y));
-      const hit=root.getRootNode().elementFromPoint?.(x,y),td=hit?.closest?.('.table-wrap tbody [data-select-field]');
-      if(td){const end={id:td.closest('tr').dataset.id,field:td.dataset.selectField},key=cellKey(end.id,end.field);if(key!==drag.last){drag.last=key;S.rangeSelection(drag.anchor,end,drag.base)}}
-      S.dragFrame=requestAnimationFrame(S.dragTick);
+      let port=S.dragViewport(),trs=q('.table-wrap tbody').children;if(!trs.length){S.stopDrag();return}
+      const speed=drag.y>port.bottom-30?Math.min(36,Math.max(3,(drag.y-port.bottom+32)*.8)):drag.y<port.top+30?-Math.min(36,Math.max(3,(port.top+32-drag.y)*.8)):0;
+      let limits=selectionScrollLimits(port.scroller.scrollTop,port.scroller.scrollHeight-port.scroller.clientHeight,trs[0].getBoundingClientRect().top,trs[trs.length-1].getBoundingClientRect().bottom,port.top,port.bottom);
+      if(speed>0&&S.loaded<S.filteredCount&&port.scroller.scrollTop+speed>=limits.max-40){S.loaded=Math.min(S.filteredCount,S.loaded+200);S.render();if(S.dragSelection!==drag)return;port=S.dragViewport();trs=q('.table-wrap tbody').children;limits=selectionScrollLimits(port.scroller.scrollTop,port.scroller.scrollHeight-port.scroller.clientHeight,trs[0].getBoundingClientRect().top,trs[trs.length-1].getBoundingClientRect().bottom,port.top,port.bottom)}
+      if(speed)port.scroller.scrollTop=Math.max(limits.min,Math.min(limits.max,port.scroller.scrollTop+speed));
+      // 滚动后重新读取行坐标，不用旧表头位置命中，也不穿过首行继续滚向页面顶部。
+      S.extendDrag();S.dragFrame=requestAnimationFrame(S.dragTick);
     };
     q('.table-wrap').onpointerdown=e=>{
       if(e.button!==0)return;const td=e.target.closest('[data-select-field]');if(!td||!td.closest('tbody'))return;
@@ -225,11 +237,33 @@ export default function(component) {
       if(e.target.tagName!=='INPUT'||add||e.shiftKey)root.focus({preventScroll:true});
       if(e.shiftKey&&S.selectionAnchor){S.rangeSelection(S.selectionAnchor,end,base);e.preventDefault();return}
       S.selection=add?new Set(S.selection):new Set();if(add&&S.selection.has(key))S.selection.delete(key);else S.selection.add(key);S.selectionAnchor=end;S.renderSelection();
-      S.stopDrag();if(e.target.tagName!=='INPUT'){e.preventDefault();S.dragSelection={anchor:end,base,last:key,x:e.clientX,y:e.clientY};S.dragFrame=requestAnimationFrame(S.dragTick)}else if(add)e.preventDefault();
+      S.stopDrag();if(e.target.tagName!=='INPUT'){e.preventDefault();const scroller=S.scrollParent();S.dragSelection={anchor:end,base,last:key,x:e.clientX,y:e.clientY,scroller,overflowAnchor:scroller.style.overflowAnchor};scroller.style.overflowAnchor='none';root.classList.add('drag-selecting');S.dragFrame=requestAnimationFrame(S.dragTick)}else if(add)e.preventDefault();
     };
-    S.onSelectionMove=e=>{if(!S.dragSelection)return;if(e.buttons!==1){S.stopDrag();return}S.dragSelection.x=e.clientX;S.dragSelection.y=e.clientY};
-    q('.table-wrap').onpointerover=e=>{if(!S.dragSelection||e.buttons!==1)return;const td=e.target.closest('[data-select-field]');if(!td||!td.closest('tbody'))return;const end={id:td.closest('tr').dataset.id,field:td.dataset.selectField};S.dragSelection.last=cellKey(end.id,end.field);S.rangeSelection(S.dragSelection.anchor,end,S.dragSelection.base)};
+    S.onSelectionMove=e=>{if(!S.dragSelection)return;if(e.buttons!==1){S.onPointerUp(e);return}S.dragSelection.x=e.clientX;S.dragSelection.y=e.clientY};
+    q('.table-wrap').onpointerover=e=>{if(S.dragSelection&&e.buttons===1){S.dragSelection.x=e.clientX;S.dragSelection.y=e.clientY;S.extendDrag()}};
 
+    S.applyZbfView=mode=>{
+      const changed=S.scope!=='zbf';S.scope='zbf';S.query='';S.category='';S.supplier='';S.columns={};S.filters=[];S.quick=mode;S.sort='sequence';S.focus=null;S.filterChanged=true;S.orderKey='';
+      q('.scope').value='zbf';q('.search').value='';q('.category').value='';q('.supplier').value='';q('.view').value='sequence';q('.sort').value='sequence';remember();if(changed)S.enqueue('scope',{scope:'zbf'});S.render();
+    };
+    S.selectFilteredAmount=()=>{const ids=S.filteredOrder||[];if(!ids.length){q('.selection-copy-status').textContent='当前筛选没有商品';return}root.focus({preventScroll:true});S.selectionAnchor={id:ids[0],field:'amount'};S.selectColumn(false)};
+    S.renderZbfAnalysis=()=>{
+      const pane=q('.zbf-analysis'),d=S.data.zbf_dashboard;if(!d)return;
+      const item=id=>S.rows.get(id)||{name:'当前目录外的历史商品',barcode:''},name=id=>esc(item(id).name),detail=ids=>ids.map(id=>`<li>${name(id)} · ${esc(item(id).barcode)}</li>`).join('')||'<li>无</li>';
+      const ranked=(title,rows)=>`<section><h4>${title}</h4><table><thead><tr><th>商品名称 / 条码</th><th>差异金额（元）</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${name(r.id)}<small>${esc(item(r.id).barcode)}</small></td><td class="num">${esc(r.amount)}</td></tr>`).join('')||'<tr><td colspan="2">无已知金额商品</td></tr>'}</tbody></table></section>`;
+      pane.innerHTML=`<div class="panel-title"><strong>卓不凡平账分析</strong><button class="zbf-analysis-close">关闭</button></div><p>${esc(d.message)}。金额归零不等于换货已核实或领导审批通过。</p>${d.missing_amount?`<p class="risk">金额不完整；仅已知盘盈 ${esc(d.known_gain)}元、已知盘亏 ${esc(d.known_loss)}元，不能视为完整合计。</p>`:''}<div class="pair-cards">${ranked('主要盘盈（最多10条）',d.analysis.gains)}${ranked('主要盘亏（最多10条）',d.analysis.losses)}</div><h4>已有A换B关系及待核实数量</h4><ul>${d.analysis.relations.map(r=>`<li>${name(r.a)} ↔ ${name(r.b)} · 关联数量 ${esc(r.quantity)} · ${r.stale?'原方案已过期':r.valid?'双方已确认且当前仍有效':`待核实 ${r.awaiting}条建议；${esc({pending:'双方待核实',partial:'单方已确认',mismatch:'方向/数量待核实',rejected:'已驳回',verified:'关系需重新核对'}[r.status]||'待核实')}`}</li>`).join('')||'<li>暂无已分配关系；不能把普通候选视为已核实换货。</li>'}</ul><details><summary>无法匹配或已驳回 ${d.analysis.unmatched.length}条</summary><ul>${d.analysis.unmatched.map(r=>`<li>${name(r.id)}：${esc(r.reason)}</li>`).join('')||'<li>无</li>'}</ul></details><details><summary>未复盘 ${d.unreviewed}条</summary><ul>${detail(d.analysis.unreviewed_ids)}</ul></details><details><summary>缺成本 ${d.missing_cost}条</summary><ul>${detail(d.analysis.missing_cost_ids)}</ul></details><details><summary>卓不凡归属待核实 ${d.supplier_pending}条（未计入金额）</summary><ul>${detail(d.analysis.supplier_pending_ids)}</ul></details>`;
+      pane.querySelector('.zbf-analysis-close').onclick=()=>{S.zbfAnalysisOpen=false;pane.close()};pane.oncancel=()=>{S.zbfAnalysisOpen=false};
+    };
+    S.renderZbf=()=>{
+      const section=q('.zbf-dashboard'),d=S.data.zbf_dashboard;section.classList.toggle('hidden',S.scope!=='zbf');if(S.scope!=='zbf'||!d)return;
+      Object.assign(S.quickLabels,{zbf_gain:'卓不凡盘盈',zbf_loss:'卓不凡盘亏',zbf_pending:'卓不凡待确认A换B',zbf_unreviewed:'卓不凡未复盘'});
+      const signature=JSON.stringify(d);if(S.zbfRendered!==signature){S.zbfRendered=signature;
+        const metrics=[['商品总条数',d.total,'total'],['已复盘 / 未复盘',d.reviewed+' / '+d.unreviewed,'progress'],['盘盈金额（元）',d.gain,'gain'],['盘亏金额（元）',d.loss,'loss'],['净差异（元）',d.net,'net'],['距离金额平账（元）',d.distance,'distance'],['待确认建议（条）',d.pending_suggestions,'pending_suggestions'],['确认且有效关系（对）',d.verified_relations,'verified_relations']];
+        section.innerHTML=`<div class="zbf-title"><strong>卓不凡A换B专项平账</strong><span class="${d.status==='loss'?'red':d.status==='gain'?'green':'zero'}">${esc(d.message)}</span></div><div class="zbf-metrics">${metrics.map(([label,value,key])=>`<div><small>${label}</small><b data-zbf-metric="${key}" class="${key==='loss'?'red':key==='gain'?'green':''}">${esc(value??'金额不完整')}</b></div>`).join('')}</div><div class="zbf-actions"><button data-zbf-view="zbf_gain">查看卓不凡盘盈</button><button data-zbf-view="zbf_loss">查看卓不凡盘亏</button><button data-zbf-view="zbf_pending">查看待确认A换B</button><button data-zbf-view="zbf_unreviewed">查看未复盘</button><button class="zbf-select-amount">选中当前筛选差异金额整列</button><button class="zbf-analysis-open">查看平账分析</button></div><div class="zbf-risks">${esc(d.risks.join('；'))}</div><small class="zbf-note">完整已确认卓不凡范围；不受下方品类/盈亏筛选影响。金额归零不等于换货已核实，更不等于领导审批通过。</small>`;
+        section.querySelectorAll('button').forEach(b=>b.onpointerdown=e=>e.preventDefault());section.querySelectorAll('[data-zbf-view]').forEach(b=>b.onclick=()=>S.applyZbfView(b.dataset.zbfView));section.querySelector('.zbf-select-amount').onclick=S.selectFilteredAmount;section.querySelector('.zbf-analysis-open').onclick=()=>{S.zbfAnalysisOpen=true;S.renderZbfAnalysis();q('.zbf-analysis').showModal()};
+      }
+      if(S.zbfAnalysisOpen)S.renderZbfAnalysis();
+    };
     S.renderBalance=()=>{
       const section=q('.balance-section');section.classList.toggle('hidden',S.scope!=='zbf');if(S.scope!=='zbf')return;
       const b=S.data.balance;if(!b){section.textContent='正在按已确认卓不凡目录分析建议…';return}
@@ -384,7 +418,7 @@ export default function(component) {
         for(const [field,selector,value] of [['复盘实数','.edit-count',r.recount],['备注','.edit-note',r.note]]){const input=tr.querySelector(selector),draft=S.drafts[r.id]?.[field],next=draft?draft.value:(value??'');input.title=String(next);if(root.getRootNode().activeElement!==input&&input.value!==String(next))input.value=String(next)}
         if(tbody.children[i]!==tr){if(tbody.moveBefore&&tr.isConnected)tbody.moveBefore(tr,tbody.children[i]||null);else tbody.insertBefore(tr,tbody.children[i]||null)}
       }
-      S.renderColumnTotals(rows);S.renderSelection();S.renderBalance();S.renderExport();
+      S.renderColumnTotals(rows);S.renderSelection();S.renderZbf();S.renderBalance();S.renderExport();
       const panel=q('.panel');const detail=d.detail;
       if(detail&&S.detailOpen&&(!S.requestedDetail||(detail.a.id===S.requestedDetail.a&&(detail.b?.id||null)===S.requestedDetail.b))){
         if(!panel.open)panel.showModal();
@@ -396,7 +430,7 @@ export default function(component) {
         for(const p of detail.peers||[]){const b=document.createElement('button');b.className='peer';b.textContent=`${p.kind} ↔ ${p.name} / ${p.barcode} / 对方差异${p.diff>0?'+':''}${p.diff} / ${p.evidence} ›`;b.onclick=()=>S.openDetail(detail.a.id,p.id);more.appendChild(b)}
         if(detail.has_more){const b=document.createElement('button');b.textContent='再展开50条候选';b.onclick=()=>S.enqueue('more_peers');more.appendChild(b)}
       }else if(S.detailOpen){if(!panel.open)panel.showModal();panel.innerHTML='<p>正在载入对应商品…</p>'}else if(panel.open)panel.close();
-      if(!reset){if(anchor?.isConnected){const delta=anchor.getBoundingClientRect().top-anchorTop;if(Math.abs(delta)>1)scroller.scrollTop=priorScroll+delta}else scroller.scrollTop=priorScroll}
+      if(!reset&&!S.dragSelection){if(anchor?.isConnected){const delta=anchor.getBoundingClientRect().top-anchorTop;if(Math.abs(delta)>1)scroller.scrollTop=priorScroll+delta}else scroller.scrollTop=priorScroll}
       if(active?.isConnected&&root.getRootNode().activeElement!==active)active.focus({preventScroll:true});
       S.requestVisible();
 
@@ -446,6 +480,7 @@ export default function(component) {
 // 所有列条件只作用于可见集合；后端财务面板与正式导出始终接收整批原数据。
 export function filterRows(rows,f){
   return rows.filter(r=>{
+    if(f.quick==='zbf_gain'&&!(r.diff>0)||f.quick==='zbf_loss'&&!(r.diff<0)||f.quick==='zbf_pending'&&!r.zbf_pending||f.quick==='zbf_unreviewed'&&r.recount!==null)return false;
     const i=r.issues||{},pending=i.pending??(r.recount===null),quick=f.quick;
     if(quick==='unreviewed_diff'&&!(pending&&r.diff!==null&&r.diff!==0)||quick==='large_loss'&&!(r.amount<0)||quick==='changed'&&!i.significant_change||quick==='mix'&&!r.mix_count||quick==='zero'&&!(r.recount!==null&&r.diff===0)||quick==='export_issue'&&!i.export_issue)return false;
     if(quick==='pending'&&!pending||['missing_cost','missing_code','missing_reason'].includes(quick)&&!i[quick])return false;
@@ -466,4 +501,14 @@ export function filterRows(rows,f){
       }else if(m==='blank'&&v!==null||m==='filled'&&v===null||m==='zero'&&v!==0)return false;
     }return true;
   });
+}
+
+// 坐标单位均为视口CSS像素；min/max绝不强迫当前滚动反向跳转。
+export function selectionScrollLimits(scrollTop,scrollMax,firstTop,lastBottom,safeTop,safeBottom){
+  return {min:Math.max(0,Math.min(scrollTop,Math.floor(scrollTop+firstTop-safeTop))),max:Math.min(scrollMax,Math.max(scrollTop,Math.ceil(scrollTop+lastBottom-safeBottom)))};
+}
+export function selectionRowAt(rects,y){
+  if(!rects.length)return -1;let best=0,distance=Infinity;
+  for(let i=0;i<rects.length;i++){const r=rects[i];if(y>=r.top&&y<r.bottom)return i;const d=y<r.top?r.top-y:y-r.bottom;if(d<distance){distance=d;best=i}}
+  return best;
 }
