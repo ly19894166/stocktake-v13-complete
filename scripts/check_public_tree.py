@@ -7,7 +7,7 @@ import sys
 
 ROOT=Path(__file__).resolve().parents[1]
 MAX_SIZE=512*1024
-EXTRA_PUBLIC={'workbench_efficiency.py'}
+EXTRA_PUBLIC={'workbench_efficiency.py','approval_reporting.py','approval_page.py'}
 ROOT_FILES=set('app.py bootstrap.py client_app.py core.py source_core.py intelligence.py imports_exports.py storage.py reporting.py workflow.py field_printing.py legacy_views.py pdf_renderer.py print_manager.py workbench_component.py requirements.txt requirements-lock.txt requirements-dev.txt start_windows.bat run_tests.bat vendors.json README.md CONTRIBUTING.md SECURITY.md AGENTS.md SOURCE_MANIFEST.json ACCEPTANCE.md .gitignore .gitattributes 启动完整盘点客户端.cmd 启动盘点软件V1.3.cmd'.split())
 ROOT_FILES.update({'report_intake.py','supplier_policy.py','vendor_audit.py','exchange_rules.py','exchange_registry.py','EXCHANGE_DATABASE.md','balance_service.py','company_export.py'})
 PATTERNS=[
@@ -27,6 +27,7 @@ def allowed(path):
     p=PurePosixPath(path)
     if path in ROOT_FILES or path in EXTRA_PUBLIC:return True
     if path=='.streamlit/config.toml':return True
+    if path=='scripts/read_approval_style.ps1':return True
     if path=='tests/workflow_acceptance.json':return True
     if len(p.parts)==2 and p.parts[0] in ('tests','scripts'):
         return p.suffix in ('.py','.mjs') and not p.name.startswith('.')

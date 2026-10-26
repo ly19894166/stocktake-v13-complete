@@ -12,12 +12,12 @@ export default function(component) {
   // 只缩短已有引擎的变化文字；数量、调整和金额继续使用后端V13结果。
   const shortChange=r=>r.recount===null?'':r.diff===0?'✓归零':r.change===0?'':(r.change>0?'↑':'↓')+r.change_label.split(' · ')[0].replace(/件/g,'').replace('盘亏增加','亏增').replace('盘盈减少','盈减').replace('盘盈增加','盈增').replace('盘亏减少','亏减');
   let S=root.__inventory;
-  if(S&&S.layoutVersion!==9){S.stopDrag?.();S.remember?.();S.observer?.disconnect();root.__inventory=null;S=null}
+  if(S&&S.layoutVersion!==10){S.stopDrag?.();S.remember?.();S.observer?.disconnect();root.__inventory=null;S=null}
   if(!S){
     let local={};try{local=JSON.parse(localStorage.getItem('stocktake:'+data.batch)||'{}')}catch{}
     const migrated=local.flowVersion!==6;
     S=root.__inventory={query:migrated?'':local.query||'',filters:migrated?[]:local.filters||[],category:migrated?'':local.category||'',supplier:migrated?'':local.supplier||'',sort:migrated?'sequence':local.sort||'sequence',scope:migrated?'exclude':local.scope||'exclude',quick:migrated?'':local.quick||'',nextUnreviewed:!!local.nextUnreviewed,safeClipboard:local.safeClipboard!==false,columns:migrated?{}:local.columns||{},order:[],orderKey:'',loaded:200,editGeneration:0,copyIntent:null,drafts:local.drafts||{},queue:[],inflight:null,rows:new Map(),dom:new Map(),focus:null,seenAck:null,viewKey:'',rowSignatures:new Map(),restore:!!Object.keys(local.drafts||{}).length,metaDrafts:local.metaDrafts||{},timers:{},reportOpen:false,detailOpen:false,exportOpen:false,exportIntent:null,exportSnapshot:null,selection:new Set(),selectionAnchor:null,dragSelection:null,balanceDrafts:{}};
-    S.layoutVersion=9;
+    S.layoutVersion=10;root.tabIndex=0;
     root.innerHTML=`<div class="progress-strip" aria-label="整店待处理进度"></div><div class="operating-panel">
       <div class="operating-inputs"><label>实际销售金额（元）<input data-meta="sales_amount" inputmode="decimal" aria-label="实际销售金额（元）" placeholder="待填写"></label><label>同期含税销售成本（元）<input data-meta="sales_cost" inputmode="decimal" aria-label="同期含税销售成本（元）" placeholder="待填写"></label><div class="calculation-status"></div><button class="export-open primary">下载盘点结果 ▾</button><button class="report-open">生成盘点汇报</button></div>
       <div class="audit muted">当前测算，仅供复盘；正式导出在顶部“下载盘点结果”中检查。</div></div><div class="metrics summary-rail" data-testid="metrics" aria-label="整店统计，包含全批次商品"></div>
@@ -30,7 +30,7 @@ export default function(component) {
       <div class="table-wrap"><table aria-label="01现场复盘表"><colgroup>${['seq','category','product','barcode','code','system','initial','recount','total','difference','amount','note','supplier','hints'].map(c=>`<col class="col-${c}">`).join('')}</colgroup><thead><tr><th><button class="header-filter" data-column="sequence" aria-label="筛选序号">序号 ▾</button></th><th><button class="header-filter" data-column="category" aria-label="筛选品类">品类 ▾</button></th><th><button class="header-filter" data-column="name" aria-label="筛选商品名称">商品名称 ▾</button></th><th><button class="header-filter" data-column="barcode" aria-label="筛选商品条码">商品条码 ▾</button></th><th class="col-code"><button class="header-filter" data-column="code" aria-label="筛选商品编码">商品编码 ▾</button></th><th><button class="header-filter" data-column="system" aria-label="筛选系统数">系统数 ▾</button></th><th><button class="header-filter" data-column="initial" aria-label="筛选初盘数">初盘数 ▾</button></th><th><button class="header-filter" data-column="recount" aria-label="筛选复盘实数">复盘实数 ▾</button></th><th><button class="header-filter" data-column="total" aria-label="筛选当前实物总数">当前实物总数 ▾</button></th><th><button class="header-filter" data-column="diff" aria-label="筛选最新差异">最新差异 ▾</button></th><th><button class="header-filter" data-column="amount" aria-label="筛选差异金额（元）">差异金额（元） ▾</button></th><th><button class="header-filter" data-column="note" aria-label="筛选备注／原因">备注／原因 ▾</button></th><th class="col-supplier"><button class="header-filter" data-column="supplier" aria-label="筛选供货商">供货商 ▾</button></th><th><button class="header-filter" data-column="hints" aria-label="筛选核查标签">核查标签 ▾</button></th></tr></thead><tbody></tbody><tfoot class="column-totals" aria-label="当前筛选与全店数字合计"></tfoot></table></div>
       <div class="load-sentinel" aria-label="连续浏览加载位置"></div><div class="table-tail"><span class="totals-note">数字合计仅供核对，不换算商品单位，不替代实盘或正式损耗计算。</span><button class="jump-top">↑ 返回表头</button></div><div class="scroll-status muted"></div>
       <div class="selection-status" role="status" aria-label="单元格计数与求和"><span class="selection-text">选中：0格　数值计数：0　求和：—</span><div class="selection-actions hidden"><select class="selection-column" aria-label="选择统计或复制列"><option value="name">商品名称</option><option value="barcode">完整条码</option><option value="code">商品编码</option><option value="system">系统数</option><option value="initial">初盘数</option><option value="recount">复盘实数</option><option value="total">当前总数</option><option value="diff">最新差异</option><option value="amount">差异金额</option></select><button class="selection-to-end">选至本列底部</button><button class="selection-all">选中整列</button><button class="selection-copy">复制选区</button><label><input class="selection-safe" type="checkbox" checked>Excel安全文本</label></div><span class="selection-copy-status" aria-live="polite"></span><button class="selection-clear">清除选择</button></div>
-      <dialog class="export-dialog" aria-label="下载盘点结果"><div class="panel-title"><strong>下载盘点结果 · 全店三列</strong><button class="export-close">关闭</button></div><p class="export-status" aria-live="polite"></p><div class="export-info"></div><details class="export-check-details"><summary>完整性核查与剩余问题</summary><label><input type="checkbox" class="export-coverage">确认同门店、同期间且覆盖本次完整盘点范围</label><label><input type="checkbox" class="export-evidence">确认差异已核实、相关凭证齐备</label><button class="export-check-save">保存导出核查</button><div class="export-blockers"></div></details><details class="export-preview"><summary>公司三列文件预览（全店）</summary><div class="export-preview-table"></div></details><div class="toolbar"><button class="export-download primary" disabled>下载公司盘点表.xls</button><span class="muted">每次下载先保存输入并重新读取全店；不使用筛选结果或未确认建议。</span></div></dialog>
+      <dialog class="export-dialog" aria-label="下载盘点结果"><div class="panel-title"><strong>下载盘点结果 · 全店三列</strong><button class="export-close">关闭</button></div><p class="export-status" aria-live="polite"></p><div class="export-info"></div><details class="export-check-details"><summary>完整性核查与剩余问题</summary><label><input type="checkbox" class="export-coverage">确认同门店、同期间且覆盖本次完整盘点范围</label><label><input type="checkbox" class="export-evidence">确认差异已核实、相关凭证齐备</label><button class="export-check-save">保存导出核查</button><div class="export-blockers"></div></details><details class="export-preview"><summary>公司三列文件预览（全店）</summary><div class="export-preview-table"></div></details><div class="toolbar"><button class="export-draft primary" disabled>下载当前核对草稿.xls</button><button class="export-download" disabled>下载正式系统候选.xls</button><span class="muted">草稿始终可下载，未核实、不代表审批通过，不可当正式上传候选。正式候选仍须全部校验通过。每次先保存输入并读取全店。</span></div></dialog>
       <dialog class="filter-dialog" aria-label="列筛选面板"></dialog><dialog class="panel" aria-label="商品详情与对应候选"></dialog>
       <dialog class="note-dialog" aria-label="展开编辑人工备注"><div class="panel-title"><strong>人工备注／原因</strong><button class="note-close">保存并收起</button></div><textarea class="note-editor" aria-label="完整人工备注"></textarea><p class="muted">自动保存。系统线索不会覆盖人工备注。</p></dialog>
       <dialog class="calculation-dialog" aria-label="V13差异计算依据"><div class="panel-title"><strong>V13差异计算依据</strong><button class="calculation-close">关闭</button></div><div class="calculation-body"></div></dialog>
@@ -137,22 +137,23 @@ export default function(component) {
     S.onScroll=()=>{if(!root.isConnected)return;clearTimeout(S.scrollTimer);S.scrollTimer=setTimeout(S.requestVisible,160)};
     S.observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)&&S.loaded<S.filteredCount){S.loaded+=200;S.render()}},{rootMargin:'900px'});
     // 导出屏障：先提交实数/备注/经营草稿，等待逐次确认，再读全批次最新版本。
-    S.abortExport=message=>{S.exportIntent=null;S.exportSnapshot=null;q('.export-status').textContent=message;q('.export-download').disabled=true};
+    S.abortExport=message=>{S.exportIntent=null;S.exportSnapshot=null;q('.export-status').textContent=message;q('.export-download').disabled=true;q('.export-draft').disabled=true};
     S.requestExport=purpose=>{
       if(S.exportIntent)return;
       S.exportOpen=true;S.exportSnapshot=null;S.flush();
       const intent={id:crypto.randomUUID(),purpose,generation:S.editGeneration};S.exportIntent=intent;
       const extra=purpose==='checks'?{coverage:q('.export-coverage').checked,evidence:q('.export-evidence').checked}:{};
       S.queue.push({kind:purpose==='checks'?'export_checks':'export_snapshot',...extra,request_id:intent.id});
-      q('.export-status').textContent='正在提交输入并核对全店最新版本，尚未生成文件…';q('.export-download').disabled=true;S.pump();S.renderExport();
+      q('.export-status').textContent='正在提交输入并核对全店最新版本，尚未生成文件…';q('.export-download').disabled=true;q('.export-draft').disabled=true;S.pump();S.renderExport();
     };
     S.finishExport=(snapshot,intent)=>{
       if(S.exportIntent!==intent)return;
       if(!S.exportOpen||intent.generation!==S.editGeneration||Object.keys(S.drafts).length||Object.keys(S.metaDrafts).length||S.queue.some(e=>e.kind!=='view')||!snapshot||snapshot.id!==intent.id||snapshot.batch!==S.data.batch||snapshot.revision!==S.data.revision||snapshot.signature!==S.data.export_signature){S.abortExport('数据仍在变化或未保存，未下载旧文件；请核对并重试');return}
       S.exportIntent=null;S.exportSnapshot=snapshot;S.exportRendered=null;S.renderExport();
-      if(intent.purpose==='download'){
-        if(!snapshot.xls){q('.export-status').textContent='正式导出被阻断，请完成剩余问题；未下载文件';return}
-        const bytes=Uint8Array.from(atob(snapshot.xls),c=>c.charCodeAt(0)),url=URL.createObjectURL(new Blob([bytes],{type:'application/vnd.ms-excel'}));const a=document.createElement('a');a.href=url;a.download='公司盘点表.xls';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);q('.export-status').textContent=`已按全店最新已保存版本 ${snapshot.revision} 生成公司三列文件`;
+      if(['download','draft'].includes(intent.purpose)){
+        const draft=intent.purpose==='draft',payload=draft?snapshot.draft_xls:snapshot.xls;
+        if(!payload){q('.export-status').textContent=draft?'未生成可核对的快照，请刷新重试':'正式导出被阻断，可先下载当前核对草稿；未生成正式候选';return}
+        const bytes=Uint8Array.from(atob(payload),c=>c.charCodeAt(0)),url=URL.createObjectURL(new Blob([bytes],{type:'application/vnd.ms-excel'}));const a=document.createElement('a');a.href=url;a.download=draft?'当前核对草稿_未核实_不可作正式上传.xls':'公司盘点表_正式系统候选.xls';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);q('.export-status').textContent=draft?`已下载全店版本 ${snapshot.revision} 的当前核对草稿：未核实，不代表审批通过，不可作为正式系统上传候选`:`已按全店最新已保存版本 ${snapshot.revision} 生成正式系统三列候选，仍须人工审批及上传`;
       }
     };
     S.renderExport=()=>{
@@ -165,12 +166,12 @@ export default function(component) {
         q('.export-blockers').innerHTML=snapshot.blockers.length?'<ul>'+snapshot.blockers.map(b=>`<li>${esc(b)}</li>`).join('')+'</ul>':'<p>原有完整性及正式导出检查通过。</p>';
         q('.export-preview-table').innerHTML='<table><thead><tr>'+snapshot.headers.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr></thead><tbody>'+snapshot.rows.map(row=>'<tr>'+row.map(v=>`<td>${esc(v??'待核实')}</td>`).join('')+'</tr>').join('')+'</tbody></table>';
       }
-      q('.export-download').disabled=!!S.exportIntent||!snapshot.xls;
+      q('.export-download').disabled=!!S.exportIntent||!snapshot.xls;q('.export-draft').disabled=!!S.exportIntent||!snapshot.draft_xls;
     };
     q('.export-open').onpointerdown=()=>{const el=root.getRootNode().activeElement,tr=el?.closest?.('.table-wrap tbody tr');S.exportReturnFocus=el;S.exportReturnScroll=S.scrollParent().scrollTop;S.exportAnchor=tr?{id:tr.dataset.id,index:[...q('.table-wrap tbody').children].indexOf(tr)}:null};
     q('.export-open').onclick=()=>{if(!S.exportReturnFocus){S.exportReturnFocus=root.getRootNode().activeElement;S.exportReturnScroll=S.scrollParent().scrollTop}S.requestExport('open')};
     S.closeExport=()=>{S.exportOpen=false;S.exportIntent=null;q('.export-dialog').close();S.exportReturnFocus?.focus?.({preventScroll:true});S.scrollParent().scrollTop=S.exportReturnScroll??S.scrollParent().scrollTop;S.exportAnchor=null;S.exportReturnFocus=null};
-    q('.export-close').onclick=S.closeExport;q('.export-dialog').oncancel=e=>{e.preventDefault();S.closeExport()};q('.export-download').onclick=()=>S.requestExport('download');q('.export-check-save').onclick=()=>S.requestExport('checks');
+    q('.export-close').onclick=S.closeExport;q('.export-dialog').oncancel=e=>{e.preventDefault();S.closeExport()};q('.export-download').onclick=()=>S.requestExport('download');q('.export-draft').onclick=()=>S.requestExport('draft');q('.export-check-save').onclick=()=>S.requestExport('checks');
 
     S.filteredSelectionRows=()=> (S.filteredOrder||[]).map(id=>S.rows.get(id)).filter(Boolean);
     S.renderSelection=()=>{
@@ -221,7 +222,7 @@ export default function(component) {
     q('.table-wrap').onpointerdown=e=>{
       if(e.button!==0)return;const td=e.target.closest('[data-select-field]');if(!td||!td.closest('tbody'))return;
       const end={id:td.closest('tr').dataset.id,field:td.dataset.selectField},key=cellKey(end.id,end.field),add=e.ctrlKey||e.metaKey,base=add?[...S.selection]:[];
-      if(e.target.tagName!=='INPUT'||add||e.shiftKey)root.getRootNode().activeElement?.blur?.();
+      if(e.target.tagName!=='INPUT'||add||e.shiftKey)root.focus({preventScroll:true});
       if(e.shiftKey&&S.selectionAnchor){S.rangeSelection(S.selectionAnchor,end,base);e.preventDefault();return}
       S.selection=add?new Set(S.selection):new Set();if(add&&S.selection.has(key))S.selection.delete(key);else S.selection.add(key);S.selectionAnchor=end;S.renderSelection();
       S.stopDrag();if(e.target.tagName!=='INPUT'){e.preventDefault();S.dragSelection={anchor:end,base,last:key,x:e.clientX,y:e.clientY};S.dragFrame=requestAnimationFrame(S.dragTick)}else if(add)e.preventDefault();
@@ -295,7 +296,9 @@ export default function(component) {
     };
     for(const selector of ['.jump-bottom','.jump-top'])q(selector).onpointerdown=e=>e.preventDefault();
     q('.jump-bottom').onclick=()=>S.jumpTable('end');q('.jump-top').onclick=()=>S.jumpTable('start');
+    S.onContextPointer=e=>{S.tableActive=e.composedPath().includes(root)};
     S.onTableKey=e=>{
+      if(!S.tableActive||!e.composedPath().includes(root))return;
       if(!root.isConnected||e.defaultPrevented||e.altKey||e.metaKey)return;
       if(root.querySelector('dialog[open]')||e.composedPath().some(el=>el.matches?.('input,textarea,select,[contenteditable]:not([contenteditable="false"])')))return;
       if(e.key==='Escape'&&S.selection.size){e.preventDefault();S.clearSelection();return}
@@ -436,8 +439,8 @@ export default function(component) {
     }
   }
   S.render();S.remember();if(S.scope!==data.active_scope&&!S.inflight&&!S.queue.length)S.enqueue('scope',{scope:S.scope});S.pump();
-  document.addEventListener('scroll',S.onScroll,true);document.addEventListener('pointerup',S.onPointerUp,true);document.addEventListener('keydown',S.onTableKey);document.addEventListener('pointermove',S.onSelectionMove,true);document.addEventListener('pointercancel',S.stopDrag,true);window.addEventListener('blur',S.stopDrag);S.observer.observe(q('.load-sentinel'));
-  return ()=>{document.removeEventListener('scroll',S.onScroll,true);document.removeEventListener('pointerup',S.onPointerUp,true);document.removeEventListener('keydown',S.onTableKey);document.removeEventListener('pointermove',S.onSelectionMove,true);document.removeEventListener('pointercancel',S.stopDrag,true);window.removeEventListener('blur',S.stopDrag);S.stopDrag();S.observer.disconnect()};
+  document.addEventListener('scroll',S.onScroll,true);document.addEventListener('pointerup',S.onPointerUp,true);document.addEventListener('keydown',S.onTableKey);document.addEventListener('pointerdown',S.onContextPointer,true);document.addEventListener('pointermove',S.onSelectionMove,true);document.addEventListener('pointercancel',S.stopDrag,true);window.addEventListener('blur',S.stopDrag);S.observer.observe(q('.load-sentinel'));
+  return ()=>{document.removeEventListener('scroll',S.onScroll,true);document.removeEventListener('pointerup',S.onPointerUp,true);document.removeEventListener('keydown',S.onTableKey);document.removeEventListener('pointerdown',S.onContextPointer,true);document.removeEventListener('pointermove',S.onSelectionMove,true);document.removeEventListener('pointercancel',S.stopDrag,true);window.removeEventListener('blur',S.stopDrag);S.stopDrag();S.observer.disconnect()};
 }
 
 // 所有列条件只作用于可见集合；后端财务面板与正式导出始终接收整批原数据。

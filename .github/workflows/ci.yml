@@ -78,6 +78,17 @@ jobs:
           python -c "import time,urllib.request;time.sleep(3);urllib.request.urlopen('http://127.0.0.1:18548/_stcore/health',timeout=30)"
           node tests/browser_seventh.mjs
           python tests/verify_seventh_artifacts.py
+          kill "$server_pid"
+          wait "$server_pid" || true
+          export STOCKTAKE_DATA_DIR=tests/runtime/approval_ci_data
+          export STOCKTAKE_APPROVAL_DATA_DIR=$STOCKTAKE_DATA_DIR
+          export STOCKTAKE_TEST_URL=http://127.0.0.1:18549
+          python tests/prepare_approval_demo.py
+          python -m streamlit run app.py --server.address 127.0.0.1 --server.port 18549 --server.headless true --browser.gatherUsageStats false > /tmp/stocktake-approval.log 2>&1 &
+          server_pid=$!
+          python -c "import time,urllib.request;time.sleep(3);urllib.request.urlopen('http://127.0.0.1:18549/_stcore/health',timeout=30)"
+          node tests/browser_approval.mjs
+          python tests/verify_approval_artifacts.py
       - name: 保存纯模拟验收截图和报告
         if: always()
         uses: actions/upload-artifact@v4
@@ -87,4 +98,5 @@ jobs:
             tests/runtime/sixth_results/
             tests/runtime/sumtail_results/
             tests/runtime/seventh_results/
+            tests/runtime/approval_results/
           retention-days: 14

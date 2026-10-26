@@ -19,7 +19,7 @@ from supplier_policy import SupplierDirectory,effective_vendors
 import legacy_views as legacy
 
 ROOT=Path(__file__).resolve().parent
-PAGES=['01 现场复盘与找差异','03 现场复核单打印','更多工具']
+PAGES=['01 现场复盘与找差异','02 领导审批报表','03 现场复核单打印','更多工具']
 
 @st.cache_data(max_entries=5,show_spinner=False)
 def parse(gn,gb,ln,lb):return import_pair((gn,gb),(ln,lb))
@@ -539,6 +539,9 @@ def main():
         page=st.segmented_control('业务入口',PAGES,key='navigation',width='stretch',label_visibility='collapsed') or PAGES[0]
         if page==PAGES[0]:render_workbench(db,batch,items,state,rev)
         elif page==PAGES[1]:
+            from approval_page import approval_page
+            approval_page(dbroot(),batch)
+        elif page==PAGES[2]:
             from field_printing import print_workbench
             print_workbench(db,batch,items,state,rev)
         else:tools_page(db,batch,items,state,rev)
